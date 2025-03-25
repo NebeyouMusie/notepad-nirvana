@@ -83,7 +83,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             
             <div className="flex items-center gap-2">
               <Link to="/new">
-                <Button variant="default" className="gap-1">
+                <Button className="gap-1">
                   <Plus size={18} />
                   <span>New Note</span>
                 </Button>

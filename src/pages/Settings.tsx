@@ -8,89 +8,33 @@ import { Settings as SettingsIcon, Save, Palette, Moon, Sun, Monitor } from "luc
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuth } from "@/context/AuthContext";
-import { saveUserPreferences } from "@/services/userPreferencesService";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function SettingsPage() {
   const [savedSettings, setSavedSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [primaryColor, setPrimaryColor] = useState("#0f172a"); // Default color
   const { theme, setTheme } = useTheme();
-  const { user } = useAuth();
   
   useEffect(() => {
-    // First check localStorage (for backward compatibility)
+    // Get saved primary color from localStorage
     const savedColor = localStorage.getItem('primaryColor');
     if (savedColor) {
       setPrimaryColor(savedColor);
     }
-    
-    // Then try to get from Supabase if user is logged in
-    const fetchUserPreferences = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-      
-      try {
-        const { data, error } = await supabase
-          .from('user_preferences')
-          .select('primary_color, theme')
-          .eq('user_id', user.id)
-          .single();
-          
-        if (error) {
-          console.error('Error fetching user preferences:', error);
-        } else if (data) {
-          setPrimaryColor(data.primary_color);
-          setTheme(data.theme);
-          
-          // Apply the color immediately
-          applyThemeColor(data.primary_color);
-        }
-      } catch (error) {
-        console.error('Error in fetching preferences:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchUserPreferences();
-  }, [user, setTheme]);
-  
-  // Apply theme color function
-  const applyThemeColor = (color: string) => {
-    // Apply the color to the document
-    document.documentElement.style.setProperty('--primary', color);
-    document.documentElement.style.setProperty('--primary-foreground', getContrastColor(color));
-    document.documentElement.style.setProperty('--accent', color);
-    document.documentElement.style.setProperty('--accent-foreground', getContrastColor(color));
-  };
+    setIsLoading(false);
+  }, []);
 
-  const handleSaveSettings = async () => {
-    // Save the primary color to localStorage for backward compatibility
+  const handleSaveSettings = () => {
+    // Save the primary color to localStorage
     localStorage.setItem('primaryColor', primaryColor);
     
-    // Apply the theme color
-    applyThemeColor(primaryColor);
+    // Apply the color to the document
+    document.documentElement.style.setProperty('--primary', primaryColor);
+    document.documentElement.style.setProperty('--primary-foreground', getContrastColor(primaryColor));
     
-    // Save to Supabase if user is logged in
-    if (user) {
-      const saved = await saveUserPreferences({
-        primary_color: primaryColor,
-        theme: theme
-      });
-      
-      if (!saved) {
-        toast({
-          title: "Error saving settings",
-          description: "Your settings could not be saved to the server",
-          variant: "destructive"
-        });
-        return;
-      }
-    }
+    // Also update the accent color to match primary
+    document.documentElement.style.setProperty('--accent', primaryColor);
+    document.documentElement.style.setProperty('--accent-foreground', getContrastColor(primaryColor));
     
     toast({
       title: "Settings saved",
@@ -186,27 +130,27 @@ export default function SettingsPage() {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
-                    variant={theme === "light" ? "default" : "outline"}
+                    variant="outline"
                     onClick={() => setTheme("light")}
-                    className={theme === "light" ? "" : ""}
+                    className={`flex gap-2 ${theme === "light" ? "border-primary bg-primary/10" : ""}`}
                   >
                     <Sun className="h-4 w-4" />
                     Light
                   </Button>
                   <Button
                     type="button"
-                    variant={theme === "dark" ? "default" : "outline"}
+                    variant="outline"
                     onClick={() => setTheme("dark")}
-                    className={theme === "dark" ? "" : ""}
+                    className={`flex gap-2 ${theme === "dark" ? "border-primary bg-primary/10" : ""}`}
                   >
                     <Moon className="h-4 w-4" />
                     Dark
                   </Button>
                   <Button
                     type="button"
-                    variant={theme === "system" ? "default" : "outline"}
+                    variant="outline"
                     onClick={() => setTheme("system")}
-                    className={theme === "system" ? "" : ""}
+                    className={`flex gap-2 ${theme === "system" ? "border-primary bg-primary/10" : ""}`}
                   >
                     <Monitor className="h-4 w-4" />
                     System
@@ -272,34 +216,39 @@ export default function SettingsPage() {
                 <div className="mt-4 p-4 rounded-lg border">
                   <h4 className="text-sm font-medium mb-2">Preview</h4>
                   <div className="flex gap-2 flex-wrap">
-                    <Button
-                      style={{ 
-                        backgroundColor: primaryColor, 
-                        color: getContrastColor(primaryColor),
-                        borderColor: `${primaryColor}40`
-                      }}
-                    >
-                      Primary Button
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      style={{ 
-                        backgroundColor: `${primaryColor}20`,
-                        color: primaryColor,
-                        borderColor: `${primaryColor}40`
-                      }}
-                    >
-                      Secondary Button
-                    </Button>
-                    <Button
-                      variant="outline"
-                      style={{ 
-                        borderColor: primaryColor, 
-                        color: primaryColor
-                      }}
-                    >
-                      Outline Button
-                    </Button>
+                    <div>
+                      <Button
+                        style={{ 
+                          backgroundColor: primaryColor, 
+                          color: getContrastColor(primaryColor)
+                        }}
+                      >
+                        Primary Button
+                      </Button>
+                    </div>
+                    <div>
+                      <Button
+                        variant="outline"
+                        style={{ 
+                          borderColor: primaryColor, 
+                          color: primaryColor,
+                          backgroundColor: "transparent"
+                        }}
+                      >
+                        Outline Button
+                      </Button>
+                    </div>
+                    <div>
+                      <Button
+                        variant="secondary"
+                        style={{ 
+                          backgroundColor: `${primaryColor}20`,
+                          color: primaryColor
+                        }}
+                      >
+                        Secondary Button
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -307,11 +256,7 @@ export default function SettingsPage() {
           </div>
           
           <div className="flex justify-end">
-            <Button 
-              onClick={handleSaveSettings} 
-              className="flex items-center gap-1"
-              variant="default"
-            >
+            <Button onClick={handleSaveSettings} className="flex items-center gap-1">
               <Save className="h-4 w-4" />
               {savedSettings ? "Saved!" : "Save Settings"}
             </Button>

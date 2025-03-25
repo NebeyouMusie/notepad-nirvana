@@ -105,33 +105,6 @@ export type Database = {
           },
         ]
       }
-      user_preferences: {
-        Row: {
-          created_at: string
-          id: string
-          primary_color: string
-          theme: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          primary_color?: string
-          theme?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          primary_color?: string
-          theme?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
