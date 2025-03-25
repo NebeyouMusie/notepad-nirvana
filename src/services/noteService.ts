@@ -90,15 +90,29 @@ export async function createNote(note: Partial<NoteInput>) {
       return null;
     }
 
-    // Make sure note has a title, even if it's a placeholder
-    if (!note.title) {
-      note.title = "New Note";
+    // Create a new note object with required fields
+    const noteData = {
+      // Default values
+      title: "New Note",
+      color: "#FFFFFF",
+      tags: [],
+      is_favorite: false,
+      is_archived: false,
+      is_trashed: false,
+      // Override with provided values
+      ...note,
+      // Add user_id
+      user_id: session.user.id
+    };
+
+    // Ensure title is not empty
+    if (!noteData.title || noteData.title.trim() === "") {
+      noteData.title = "New Note";
     }
 
-    // Include user_id in the note creation
     const { data, error } = await supabase
       .from('notes')
-      .insert([{ ...note, user_id: session.user.id }])
+      .insert([noteData])
       .select()
       .single();
     
