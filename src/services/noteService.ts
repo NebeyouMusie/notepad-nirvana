@@ -113,10 +113,9 @@ export const createNote = async (note: {
   color?: string;
   tags?: string[];
 }): Promise<NoteProps> => {
-  const user = supabase.auth.getUser();
-  const { data: userData } = await user;
+  const { data: userData, error: userError } = await supabase.auth.getUser();
   
-  if (!userData.user) {
+  if (userError || !userData.user) {
     throw new Error("User not authenticated");
   }
   
@@ -127,6 +126,7 @@ export const createNote = async (note: {
       content: note.content,
       color: note.color || "#FFFFFF",
       tags: note.tags || [],
+      is_favorite: false,
       is_archived: false,
       is_deleted: false,
       deleted_at: null,
