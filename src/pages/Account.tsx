@@ -57,6 +57,11 @@ export default function Account() {
         .delete()
         .eq('user_id', user?.id);
         
+      await supabase
+        .from('user_preferences')
+        .delete()
+        .eq('user_id', user?.id);
+        
       // Delete the user's authentication record
       const { error } = await supabase.auth.admin.deleteUser(user?.id || '');
       
@@ -125,7 +130,7 @@ export default function Account() {
               </div>
               
               <div className="flex justify-end">
-                <Button type="submit" disabled={isSaving}>
+                <Button type="submit" disabled={isSaving} variant="default">
                   <Save className="mr-2 h-4 w-4" />
                   {isSaving ? "Saving..." : "Save Changes"}
                 </Button>
@@ -143,7 +148,7 @@ export default function Account() {
                   Sign out of your account on this device
                 </p>
                 <Button 
-                  variant="outline"
+                  variant="secondary"
                   onClick={signOut}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
