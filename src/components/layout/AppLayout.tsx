@@ -5,9 +5,9 @@ import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Search } from "@/components/ui/Search";
 import { Menu, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -17,6 +17,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -35,7 +36,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      await signOut();
       toast({
         title: "Logged out",
         description: "You have been successfully logged out",
@@ -52,10 +53,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar 
-        // The Sidebar component doesn't accept isOpen, onClose and isMobile props
-        // so we need to remove them or adapt the component
-      />
+      <Sidebar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 border-b flex items-center justify-between px-4 shrink-0">
