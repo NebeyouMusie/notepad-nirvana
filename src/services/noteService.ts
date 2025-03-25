@@ -74,6 +74,13 @@ export const createNote = async (note: {
   color?: string;
   tags?: string[];
 }): Promise<NoteProps> => {
+  const user = supabase.auth.getUser();
+  const { data: userData } = await user;
+  
+  if (!userData.user) {
+    throw new Error("User not authenticated");
+  }
+  
   const { data, error } = await supabase
     .from("notes")
     .insert({
@@ -81,6 +88,7 @@ export const createNote = async (note: {
       content: note.content,
       color: note.color || "#FFFFFF",
       tags: note.tags || [],
+      user_id: userData.user.id
     })
     .select()
     .single();

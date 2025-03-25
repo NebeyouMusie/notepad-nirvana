@@ -21,9 +21,19 @@ export const getFolders = async (): Promise<Folder[]> => {
 };
 
 export const createFolder = async (name: string): Promise<Folder> => {
+  const user = supabase.auth.getUser();
+  const { data: userData } = await user;
+  
+  if (!userData.user) {
+    throw new Error("User not authenticated");
+  }
+  
   const { data, error } = await supabase
     .from("folders")
-    .insert({ name })
+    .insert({ 
+      name,
+      user_id: userData.user.id 
+    })
     .select()
     .single();
 
