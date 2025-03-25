@@ -4,13 +4,31 @@ import { Sidebar } from "./Sidebar";
 import { Search } from "@/components/ui/Search";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import { Loader2 } from "lucide-react";
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
+  const { user, isLoading } = useAuth();
+
+  // If user is not logged in, redirect to auth page
+  if (!isLoading && !user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Show loading while checking authentication
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full">
       <Sidebar />
