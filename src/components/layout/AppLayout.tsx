@@ -52,10 +52,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        isMobile={isMobile}
+      <Sidebar 
+        // The Sidebar component doesn't accept isOpen, onClose and isMobile props
+        // so we need to remove them or adapt the component
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">

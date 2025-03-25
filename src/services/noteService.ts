@@ -90,9 +90,15 @@ export async function createNote(note: Partial<NoteInput>) {
       return null;
     }
 
+    // Make sure note has a title, even if it's a placeholder
+    if (!note.title) {
+      note.title = "New Note";
+    }
+
+    // Include user_id in the note creation
     const { data, error } = await supabase
       .from('notes')
-      .insert([note])
+      .insert([{ ...note, user_id: session.user.id }])
       .select()
       .single();
     

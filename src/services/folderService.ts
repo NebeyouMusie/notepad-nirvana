@@ -54,9 +54,10 @@ export async function createFolder(name: string) {
       return null;
     }
 
+    // Include user_id in the folder creation
     const { data, error } = await supabase
       .from('folders')
-      .insert([{ name }])
+      .insert([{ name, user_id: session.user.id }])
       .select()
       .single();
     
