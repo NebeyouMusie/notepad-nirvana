@@ -1,88 +1,89 @@
 
+import { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, Navigate } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
-import { AuthProvider } from "@/context/AuthContext";
-import { useAuth } from "@/context/AuthContext";
-import { ThemeProvider } from "@/hooks/useTheme";
+import { Session } from '@supabase/supabase-js';
+import Auth from '@/pages/Auth';
+import Index from '@/pages/Index';
+import NotFound from '@/pages/NotFound';
+import Settings from '@/pages/Settings';
+import Account from '@/pages/Account';
+import Archived from '@/pages/Archived';
+import Favorites from '@/pages/Favorites';
+import Trash from '@/pages/Trash';
+import Editor from '@/pages/Editor';
+import FolderPage from '@/pages/Folder';
+import './App.css';
 
-// Pages
-import Index from "./pages/Index";
-import Editor from "./pages/Editor";
-import NotFound from "./pages/NotFound";
-import Auth from "./pages/Auth";
-import Favorites from "./pages/Favorites";
-import Archived from "./pages/Archived";
-import Trash from "./pages/Trash";
-import Settings from "./pages/Settings";
-import Folder from "./pages/Folder";
-import Account from "./pages/Account";
+export default function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-const queryClient = new QueryClient();
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setIsLoading(false);
+    });
 
-// Protected route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
-  
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   if (isLoading) {
-    return <div className="h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
-  
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-  
-  return <>{children}</>;
-};
 
-// Auth route - redirects to home if already logged in
-const AuthRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
-  
-  if (isLoading) {
-    return <div className="h-screen flex items-center justify-center">Loading...</div>;
-  }
-  
-  if (user) {
-    return <Navigate to="/" replace />;
-  }
-  
-  return <>{children}</>;
-};
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="system" storageKey="theme">
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AnimatePresence mode="wait">
-            <Routes>
-              <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
-              
-              {/* Protected routes */}
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/new" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
-              <Route path="/notes/:id" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
-              <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
-              <Route path="/archived" element={<ProtectedRoute><Archived /></ProtectedRoute>} />
-              <Route path="/trash" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/folders/:id" element={<ProtectedRoute><Folder /></ProtectedRoute>} />
-              <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-              
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AnimatePresence>
-        </TooltipProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
-
-export default App;
+  return (
+    <Router>
+      <Routes>
+        <Route 
+          path="/auth" 
+          element={session ? <Navigate to="/" /> : <Auth />} 
+        />
+        <Route 
+          path="/" 
+          element={session ? <Index /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/notes/:id" 
+          element={session ? <Editor /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/favorites" 
+          element={session ? <Favorites /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/archived" 
+          element={session ? <Archived /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/trash" 
+          element={session ? <Trash /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/folder/:id" 
+          element={session ? <FolderPage /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/settings" 
+          element={session ? <Settings /> : <Navigate to="/auth" />} 
+        />
+        <Route 
+          path="/account" 
+          element={session ? <Account /> : <Navigate to="/auth" />} 
+        />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster />
+    </Router>
+  );
+}

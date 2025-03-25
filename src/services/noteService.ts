@@ -27,6 +27,17 @@ export async function fetchNotes(options: {
   folderId?: string;
 } = {}) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to view your notes",
+        variant: "destructive",
+      });
+      return [];
+    }
+
     let query = supabase
       .from('notes')
       .select('*')
@@ -68,6 +79,17 @@ export async function fetchNotes(options: {
 // Create a new note
 export async function createNote(note: Partial<NoteInput>) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to create notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('notes')
       .insert([note])
@@ -90,6 +112,17 @@ export async function createNote(note: Partial<NoteInput>) {
 // Update an existing note
 export async function updateNote(id: string, updates: Partial<NoteInput>) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to update notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('notes')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -113,6 +146,17 @@ export async function updateNote(id: string, updates: Partial<NoteInput>) {
 // Get a single note by ID
 export async function getNote(id: string) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to view notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('notes')
       .select('*')
@@ -135,6 +179,17 @@ export async function getNote(id: string) {
 // Delete a note permanently
 export async function deleteNote(id: string) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to delete notes",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     const { error } = await supabase
       .from('notes')
       .delete()
@@ -156,6 +211,17 @@ export async function deleteNote(id: string) {
 // Move a note to trash
 export async function trashNote(id: string) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to trash notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('notes')
       .update({ 
@@ -182,6 +248,17 @@ export async function trashNote(id: string) {
 // Restore a note from trash
 export async function restoreNote(id: string) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to restore notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('notes')
       .update({ 
@@ -208,6 +285,17 @@ export async function restoreNote(id: string) {
 // Toggle favorite status
 export async function toggleFavorite(id: string, isFavorite: boolean) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to update notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('notes')
       .update({ is_favorite: isFavorite })
@@ -231,6 +319,17 @@ export async function toggleFavorite(id: string, isFavorite: boolean) {
 // Toggle archived status
 export async function toggleArchived(id: string, isArchived: boolean) {
   try {
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to update notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('notes')
       .update({ is_archived: isArchived })
