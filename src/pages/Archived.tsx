@@ -6,13 +6,13 @@ import { fetchNotes, Note } from "@/services/noteService";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
-export default function Index() {
+export default function Archived() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadNotes = async () => {
     setIsLoading(true);
-    const data = await fetchNotes();
+    const data = await fetchNotes({ archived: true });
     setNotes(data);
     setIsLoading(false);
   };
@@ -30,11 +30,11 @@ export default function Index() {
           transition={{ duration: 0.3 }}
           className="mb-6"
         >
-          <h1 className="text-3xl font-semibold">All Notes</h1>
+          <h1 className="text-3xl font-semibold">Archived Notes</h1>
           <p className="text-muted-foreground">
             {isLoading 
-              ? "Loading notes..." 
-              : `You have ${notes.length} note${notes.length !== 1 ? 's' : ''}`}
+              ? "Loading archived notes..." 
+              : `You have ${notes.length} archived note${notes.length !== 1 ? 's' : ''}`}
           </p>
         </motion.div>
         
