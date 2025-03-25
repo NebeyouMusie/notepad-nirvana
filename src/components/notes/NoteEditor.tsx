@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -12,7 +11,8 @@ import {
   Heading1, 
   Heading2,
   Hash,
-  FolderOpen
+  FolderOpen,
+  Save
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { createNote, updateNote, NoteInput } from "@/services/noteService";
@@ -51,12 +51,11 @@ export function NoteEditor({
   const [newTag, setNewTag] = useState("");
   const [wordCount, setWordCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(initialFolderId || null);
-  const [isFirstRender, setIsFirstRender] = useState(true);
-  const manualSaveRef = useRef(false);
+  
+  // Removed auto-save timer state and isFirstRender state
 
   useEffect(() => {
     calculateWordCount(content);
@@ -70,39 +69,7 @@ export function NoteEditor({
     loadFolders();
   }, []);
 
-  useEffect(() => {
-    // Set first render flag to false after first render
-    if (isFirstRender) {
-      setIsFirstRender(false);
-      return;
-    }
-    
-    // Skip auto-save if a manual save was just triggered
-    if (manualSaveRef.current) {
-      manualSaveRef.current = false;
-      return;
-    }
-    
-    // Auto-save after 3 seconds of inactivity, but only if not first render
-    if (autoSaveTimer) {
-      clearTimeout(autoSaveTimer);
-    }
-    
-    const timer = setTimeout(() => {
-      if ((title !== initialTitle || content !== initialContent || JSON.stringify(tags) !== JSON.stringify(initialTags) || color !== initialColor) && 
-          title.trim() !== "") {
-        handleSave();
-      }
-    }, 3000);
-    
-    setAutoSaveTimer(timer);
-    
-    return () => {
-      if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-      }
-    };
-  }, [title, content, tags, color]);
+  // Removed the auto-save effect that was previously here
 
   const calculateWordCount = (text: string) => {
     setWordCount(text.trim() === "" ? 0 : text.trim().split(/\s+/).length);
@@ -111,6 +78,7 @@ export function NoteEditor({
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
     setContent(newContent);
+    calculateWordCount(newContent);
   };
 
   const handleSave = async () => {
@@ -124,7 +92,6 @@ export function NoteEditor({
     }
     
     setIsSaving(true);
-    manualSaveRef.current = true;
     
     try {
       const noteData: Partial<NoteInput> = {
@@ -151,6 +118,10 @@ export function NoteEditor({
       
       if (savedNote) {
         setLastSaved(new Date());
+        toast({
+          title: noteId ? "Note updated" : "Note created",
+          description: noteId ? "Your changes have been saved" : "Your new note has been saved",
+        });
         if (onSave && savedNote.id) {
           onSave(savedNote.id);
         }
@@ -335,14 +306,13 @@ export function NoteEditor({
         <div>{wordCount} words</div>
         <div className="flex items-center gap-2">
           <span>
-            {isSaving 
-              ? "Saving..." 
-              : lastSaved 
-                ? `Last saved ${lastSaved.toLocaleTimeString()}` 
-                : "Not saved yet"}
+            {lastSaved 
+              ? `Last saved ${lastSaved.toLocaleTimeString()}` 
+              : "Not saved yet"}
           </span>
-          <Button size="sm" onClick={handleSave} disabled={isSaving}>
-            Save
+          <Button size="sm" onClick={handleSave} disabled={isSaving} className="flex items-center gap-1">
+            <Save size={14} />
+            {isSaving ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>

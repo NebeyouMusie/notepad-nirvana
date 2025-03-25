@@ -66,29 +66,32 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
 
   return (
     <div className="relative w-full max-w-md" ref={searchRef}>
-      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-        <SearchIcon className="h-4 w-4 text-muted-foreground" />
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <SearchIcon className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <input
+          type="text"
+          className="w-full rounded-full bg-secondary/50 border-transparent py-2 pl-10 pr-10 text-sm 
+                    focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent"
+          placeholder={placeholder}
+          value={query}
+          onChange={handleChange}
+          onFocus={() => query.trim().length > 0 && setShowResults(true)}
+        />
+        {query.trim().length > 0 && (
+          <button 
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+            onClick={clearSearch}
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
-      <input
-        type="search"
-        className="glassmorphism w-full rounded-full py-2 pl-10 pr-10 text-sm 
-                  focus:outline-none focus:ring-2 focus:ring-primary/50"
-        placeholder={placeholder}
-        value={query}
-        onChange={handleChange}
-        onFocus={() => query.trim().length > 0 && setShowResults(true)}
-      />
-      {query.trim().length > 0 && (
-        <button 
-          className="absolute inset-y-0 right-0 flex items-center pr-3"
-          onClick={clearSearch}
-        >
-          <X className="h-4 w-4 text-muted-foreground" />
-        </button>
-      )}
       
       {showResults && (
-        <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md">
+        <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-lg">
           <div className="p-2">
             <h3 className="text-xs font-medium text-muted-foreground mb-2">
               {isSearching 
@@ -102,18 +105,18 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
               <Link 
                 key={note.id} 
                 to={`/notes/${note.id}`}
-                className="block rounded-md p-2 hover:bg-accent transition-colors"
+                className="block rounded-md p-2 hover:bg-accent/50 transition-colors"
                 onClick={() => setShowResults(false)}
               >
                 <div className="flex items-center space-x-2">
                   <div 
-                    className="h-2 w-2 rounded-full" 
+                    className="h-3 w-3 rounded-full flex-shrink-0" 
                     style={{ backgroundColor: note.color || '#FFFFFF' }}
                   />
                   <h4 className="text-sm font-medium line-clamp-1">{note.title}</h4>
                 </div>
                 {note.content && (
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1 pl-5">
                     {note.content}
                   </p>
                 )}
