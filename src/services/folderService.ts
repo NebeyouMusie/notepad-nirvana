@@ -12,9 +12,17 @@ export interface Folder {
 // Fetch all folders
 export async function fetchFolders() {
   try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return [];
+    }
+    
     const { data, error } = await supabase
       .from('folders')
       .select('*')
+      .eq('user_id', user.id)
       .order('name', { ascending: true });
     
     if (error) throw error;
@@ -93,10 +101,18 @@ export async function updateFolder(id: string, name: string) {
 // Get a folder by ID
 export async function getFolder(id: string) {
   try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('folders')
       .select('*')
       .eq('id', id)
+      .eq('user_id', user.id)
       .single();
     
     if (error) throw error;
@@ -114,10 +130,18 @@ export async function getFolder(id: string) {
 // Delete a folder
 export async function deleteFolder(id: string) {
   try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error("You must be logged in to delete folders");
+    }
+    
     const { error } = await supabase
       .from('folders')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', user.id);
     
     if (error) throw error;
     return true;

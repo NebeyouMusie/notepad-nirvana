@@ -12,7 +12,7 @@ export default function Favorites() {
 
   const loadNotes = async () => {
     setIsLoading(true);
-    const data = await fetchNotes({ favorite: true });
+    const data = await fetchNotes({ onlyFavorites: true });
     setNotes(data);
     setIsLoading(false);
   };

@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { fetchNotes, Note, restoreNote, deleteNote } from "@/services/noteService";
+import { fetchNotes, Note, restoreNote, deleteNotePermanently } from "@/services/noteService";
 import { motion } from "framer-motion";
 import { Loader2, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ export default function Trash() {
 
   const loadNotes = async () => {
     setIsLoading(true);
-    const data = await fetchNotes({ trashed: true });
+    const data = await fetchNotes({ onlyTrashed: true });
     setNotes(data);
     setIsLoading(false);
   };
@@ -53,7 +53,7 @@ export default function Trash() {
     if (!selectedNote) return;
     
     setIsDeleting(true);
-    const result = await deleteNote(selectedNote.id);
+    const result = await deleteNotePermanently(selectedNote.id);
     setIsDeleting(false);
     setIsDialogOpen(false);
     

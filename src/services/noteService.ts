@@ -17,6 +17,13 @@ export interface Note {
   updated_at: string;
 }
 
+export interface NoteInput {
+  title: string;
+  content: string;
+  color: string;
+  tags: string[];
+}
+
 interface FetchNotesOptions {
   folderId?: string;
   searchQuery?: string;
