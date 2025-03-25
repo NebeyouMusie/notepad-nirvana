@@ -4,31 +4,21 @@ import { Sidebar } from "./Sidebar";
 import { Search } from "@/components/ui/Search";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const navigate = useNavigate();
-
-  const handleSearch = (query: string) => {
-    if (query.trim()) {
-      navigate(`/search?q=${encodeURIComponent(query)}`);
-    }
-  };
-
   return (
-    <div className="flex h-screen font-poppins">
-      <div className="fixed h-screen z-20">
-        <Sidebar />
-      </div>
+    <div className="flex h-full">
+      <Sidebar />
       
-      <div className="flex-1 flex flex-col h-screen overflow-hidden ml-64">
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
         <header className="border-b glassmorphism backdrop-blur-xl sticky top-0 z-10">
           <div className="flex items-center justify-between p-4">
-            <Search onSearch={handleSearch} />
+            <Search />
             
             <div className="flex items-center gap-2">
               <Link to="/new">
