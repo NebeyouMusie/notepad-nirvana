@@ -11,11 +11,20 @@ import {
   AlignRight, 
   Heading1, 
   Heading2,
-  Hash
+  Hash,
+  FolderPlus
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { createNote, updateNote, NoteInput } from "@/services/noteService";
 import { toast } from "@/hooks/use-toast";
+import { Folder, fetchFolders, addNoteToFolder } from "@/services/folderService";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface NoteEditorProps {
   initialContent?: string;
@@ -41,34 +50,22 @@ export function NoteEditor({
   const [newTag, setNewTag] = useState("");
   const [wordCount, setWordCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string>("");
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
 
   useEffect(() => {
     calculateWordCount(content);
-  }, [content]);
-
-  useEffect(() => {
-    // Auto-save after 3 seconds of inactivity
-    if (autoSaveTimer) {
-      clearTimeout(autoSaveTimer);
-    }
     
-    const timer = setTimeout(() => {
-      if ((title !== initialTitle || content !== initialContent || JSON.stringify(tags) !== JSON.stringify(initialTags) || color !== initialColor) && 
-          title.trim() !== "") {
-        handleSave();
-      }
-    }, 3000);
-    
-    setAutoSaveTimer(timer);
-    
-    return () => {
-      if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-      }
+    // Load folders
+    const loadFolders = async () => {
+      const folderData = await fetchFolders();
+      setFolders(folderData);
     };
-  }, [title, content, tags, color]);
+    
+    loadFolders();
+  }, [content]);
 
   const calculateWordCount = (text: string) => {
     setWordCount(text.trim() === "" ? 0 : text.trim().split(/\s+/).length);
@@ -107,6 +104,11 @@ export function NoteEditor({
       } else {
         // Create new note
         savedNote = await createNote(noteData);
+        
+        // If a folder is selected, add the note to the folder
+        if (savedNote && selectedFolder) {
+          await addNoteToFolder(savedNote.id, selectedFolder);
+        }
       }
       
       if (savedNote) {
@@ -203,6 +205,28 @@ export function NoteEditor({
         </div>
       </div>
       
+      {!noteId && (
+        <div className="glassmorphism rounded-lg p-3 mb-4">
+          <div className="mb-2 text-sm font-medium flex items-center">
+            <FolderPlus className="mr-2 h-4 w-4" />
+            Add to Folder
+          </div>
+          <Select value={selectedFolder} onValueChange={setSelectedFolder}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a folder" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">None</SelectItem>
+              {folders.map((folder) => (
+                <SelectItem key={folder.id} value={folder.id}>
+                  {folder.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      
       <div className="glassmorphism rounded-lg p-3 mb-4">
         <div className="mb-2 text-sm font-medium">Tags</div>
         <form onSubmit={addTag} className="flex mb-2">
@@ -247,7 +271,16 @@ export function NoteEditor({
       </div>
       
       <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground">
-        <div>{wordCount} words</div>
+        <div className="flex items-center gap-2">
+          <span>{wordCount} words</span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setAutoSaveEnabled(!autoSaveEnabled)}
+          >
+            {autoSaveEnabled ? "Auto-save: On" : "Auto-save: Off"}
+          </Button>
+        </div>
         <div className="flex items-center gap-2">
           <span>
             {isSaving 
