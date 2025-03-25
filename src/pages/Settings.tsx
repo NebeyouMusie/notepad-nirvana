@@ -6,9 +6,10 @@ import { motion } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { Settings as SettingsIcon, Save, Palette, Moon, Sun, Monitor } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/context/AuthContext";
-import { saveUserPreferences, getUserPreferences } from "@/services/userPreferencesService";
+import { saveUserPreferences } from "@/services/userPreferencesService";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function SettingsPage() {
@@ -33,17 +34,20 @@ export default function SettingsPage() {
       }
       
       try {
-        const preferences = await getUserPreferences();
+        const { data, error } = await supabase
+          .from('user_preferences')
+          .select('primary_color, theme')
+          .eq('user_id', user.id)
+          .single();
           
-        if (preferences) {
-          setPrimaryColor(preferences.primary_color);
-          // Ensure theme is a valid type before setting
-          if (preferences.theme === "light" || preferences.theme === "dark" || preferences.theme === "system") {
-            setTheme(preferences.theme);
-          }
+        if (error) {
+          console.error('Error fetching user preferences:', error);
+        } else if (data) {
+          setPrimaryColor(data.primary_color);
+          setTheme(data.theme);
           
           // Apply the color immediately
-          applyThemeColor(preferences.primary_color);
+          applyThemeColor(data.primary_color);
         }
       } catch (error) {
         console.error('Error in fetching preferences:', error);
@@ -184,24 +188,27 @@ export default function SettingsPage() {
                     type="button"
                     variant={theme === "light" ? "default" : "outline"}
                     onClick={() => setTheme("light")}
+                    className={theme === "light" ? "" : ""}
                   >
-                    <Sun className="h-4 w-4 mr-2" />
+                    <Sun className="h-4 w-4" />
                     Light
                   </Button>
                   <Button
                     type="button"
                     variant={theme === "dark" ? "default" : "outline"}
                     onClick={() => setTheme("dark")}
+                    className={theme === "dark" ? "" : ""}
                   >
-                    <Moon className="h-4 w-4 mr-2" />
+                    <Moon className="h-4 w-4" />
                     Dark
                   </Button>
                   <Button
                     type="button"
                     variant={theme === "system" ? "default" : "outline"}
                     onClick={() => setTheme("system")}
+                    className={theme === "system" ? "" : ""}
                   >
-                    <Monitor className="h-4 w-4 mr-2" />
+                    <Monitor className="h-4 w-4" />
                     System
                   </Button>
                 </div>
@@ -265,17 +272,33 @@ export default function SettingsPage() {
                 <div className="mt-4 p-4 rounded-lg border">
                   <h4 className="text-sm font-medium mb-2">Preview</h4>
                   <div className="flex gap-2 flex-wrap">
-                    <Button variant="default">
+                    <Button
+                      style={{ 
+                        backgroundColor: primaryColor, 
+                        color: getContrastColor(primaryColor),
+                        borderColor: `${primaryColor}40`
+                      }}
+                    >
                       Primary Button
                     </Button>
-                    <Button variant="secondary">
+                    <Button
+                      variant="secondary"
+                      style={{ 
+                        backgroundColor: `${primaryColor}20`,
+                        color: primaryColor,
+                        borderColor: `${primaryColor}40`
+                      }}
+                    >
                       Secondary Button
                     </Button>
-                    <Button variant="outline">
+                    <Button
+                      variant="outline"
+                      style={{ 
+                        borderColor: primaryColor, 
+                        color: primaryColor
+                      }}
+                    >
                       Outline Button
-                    </Button>
-                    <Button variant="destructive">
-                      Delete Button
                     </Button>
                   </div>
                 </div>

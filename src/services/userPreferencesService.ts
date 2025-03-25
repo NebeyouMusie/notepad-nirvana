@@ -23,14 +23,7 @@ export async function getUserPreferences(): Promise<UserPreferences | null> {
     return null;
   }
   
-  // Ensure theme is one of the allowed values
-  const theme = data.theme as "light" | "dark" | "system";
-  
-  // Return the correctly typed preferences
-  return {
-    primary_color: data.primary_color,
-    theme: theme
-  };
+  return data;
 }
 
 export async function saveUserPreferences(preferences: Partial<UserPreferences>): Promise<boolean> {
