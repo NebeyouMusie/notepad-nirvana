@@ -1,4 +1,6 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -69,7 +71,7 @@
  
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border font-poppins;
   }
   body {
     @apply bg-background text-foreground;
@@ -78,7 +80,7 @@
 
 /* Custom styles */
 .note-card {
-  @apply hover:border-primary/30;
+  @apply hover:border-primary/30 hover:shadow-lg transition-all duration-300;
 }
 
 .glassmorphism {

@@ -112,8 +112,8 @@ export default function Index({ filter }: IndexProps) {
           transition={{ duration: 0.3 }}
           className="mb-6"
         >
-          <h1 className="text-3xl font-semibold">{getPageTitle()}</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-semibold font-poppins">{getPageTitle()}</h1>
+          <p className="text-muted-foreground font-poppins">
             {isLoading 
               ? "Loading notes..." 
               : `You have ${notes.length} note${notes.length !== 1 ? 's' : ''}`}
@@ -132,7 +132,7 @@ export default function Index({ filter }: IndexProps) {
             animate={{ opacity: 1 }}
             className="text-center p-12 border border-dashed rounded-lg"
           >
-            <p className="text-muted-foreground">No notes found</p>
+            <p className="text-muted-foreground font-poppins">No notes found</p>
           </motion.div>
         )}
       </div>

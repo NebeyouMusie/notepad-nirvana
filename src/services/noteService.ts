@@ -9,6 +9,9 @@ export interface DbNote {
   content: string;
   color: string;
   is_favorite: boolean;
+  is_archived: boolean;
+  is_deleted: boolean;
+  deleted_at: string | null;
   tags: string[];
   created_at: string;
   updated_at: string;
@@ -22,6 +25,9 @@ export const mapDbNoteToUiNote = (dbNote: DbNote): NoteProps => {
     content: dbNote.content,
     createdAt: dbNote.created_at,
     isFavorite: dbNote.is_favorite,
+    isArchived: dbNote.is_archived,
+    isDeleted: dbNote.is_deleted,
+    deletedAt: dbNote.deleted_at,
     tags: dbNote.tags,
     color: dbNote.color,
   };
@@ -31,6 +37,8 @@ export const getNotes = async (): Promise<NoteProps[]> => {
   const { data, error } = await supabase
     .from("notes")
     .select("*")
+    .eq("is_archived", false)
+    .eq("is_deleted", false)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -45,6 +53,37 @@ export const getFavoriteNotes = async (): Promise<NoteProps[]> => {
     .from("notes")
     .select("*")
     .eq("is_favorite", true)
+    .eq("is_archived", false)
+    .eq("is_deleted", false)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as DbNote[]).map(mapDbNoteToUiNote);
+};
+
+export const getArchivedNotes = async (): Promise<NoteProps[]> => {
+  const { data, error } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("is_archived", true)
+    .eq("is_deleted", false)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as DbNote[]).map(mapDbNoteToUiNote);
+};
+
+export const getDeletedNotes = async (): Promise<NoteProps[]> => {
+  const { data, error } = await supabase
+    .from("notes")
+    .select("*")
+    .eq("is_deleted", true)
     .order("updated_at", { ascending: false });
 
   if (error) {
@@ -88,6 +127,9 @@ export const createNote = async (note: {
       content: note.content,
       color: note.color || "#FFFFFF",
       tags: note.tags || [],
+      is_archived: false,
+      is_deleted: false,
+      deleted_at: null,
       user_id: userData.user.id
     })
     .select()
@@ -107,6 +149,9 @@ export const updateNote = async (
     content: string;
     color: string;
     is_favorite: boolean;
+    is_archived: boolean;
+    is_deleted: boolean;
+    deleted_at: string | null;
     tags: string[];
   }>
 ): Promise<NoteProps> => {
@@ -140,6 +185,45 @@ export const deleteNote = async (id: string): Promise<void> => {
 
 export const toggleFavorite = async (id: string, isFavorite: boolean): Promise<NoteProps> => {
   return updateNote(id, { is_favorite: isFavorite });
+};
+
+export const archiveNote = async (id: string, isArchived: boolean): Promise<NoteProps> => {
+  return updateNote(id, { is_archived: isArchived });
+};
+
+export const trashNote = async (id: string): Promise<NoteProps> => {
+  return updateNote(id, { 
+    is_deleted: true, 
+    deleted_at: new Date().toISOString() 
+  });
+};
+
+export const restoreNote = async (id: string): Promise<NoteProps> => {
+  return updateNote(id, { 
+    is_deleted: false, 
+    deleted_at: null 
+  });
+};
+
+export const searchNotes = async (query: string): Promise<NoteProps[]> => {
+  if (!query.trim()) {
+    return getNotes();
+  }
+  
+  // Search in both title and content
+  const { data, error } = await supabase
+    .from("notes")
+    .select("*")
+    .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
+    .eq("is_archived", false)
+    .eq("is_deleted", false)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as DbNote[]).map(mapDbNoteToUiNote);
 };
 
 export const subscribeToNotes = (
