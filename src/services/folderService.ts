@@ -9,13 +9,13 @@ export interface Folder {
   created_at: string;
 }
 
-// Fetch all folders for the current user
+// Fetch all folders
 export async function fetchFolders() {
   try {
     const { data, error } = await supabase
       .from('folders')
       .select('*')
-      .order('name');
+      .order('name', { ascending: true });
     
     if (error) throw error;
     return data || [];
@@ -32,14 +32,23 @@ export async function fetchFolders() {
 // Create a new folder
 export async function createFolder(name: string) {
   try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error("You must be logged in to create folders");
+    }
+    
     const { data, error } = await supabase
       .from('folders')
-      .insert([{ name }])
+      .insert([{
+        name,
+        user_id: user.id
+      }])
       .select()
       .single();
     
     if (error) throw error;
-    
     return data;
   } catch (error: any) {
     toast({
@@ -51,22 +60,20 @@ export async function createFolder(name: string) {
   }
 }
 
-// Update a folder name
-export async function updateFolder(id: string, name: string) {
+// Get a folder by ID
+export async function getFolder(id: string) {
   try {
     const { data, error } = await supabase
       .from('folders')
-      .update({ name })
+      .select('*')
       .eq('id', id)
-      .select()
       .single();
     
     if (error) throw error;
-    
     return data;
   } catch (error: any) {
     toast({
-      title: "Error updating folder",
+      title: "Error fetching folder",
       description: error.message,
       variant: "destructive",
     });
@@ -83,7 +90,6 @@ export async function deleteFolder(id: string) {
       .eq('id', id);
     
     if (error) throw error;
-    
     return true;
   } catch (error: any) {
     toast({
@@ -103,7 +109,6 @@ export async function addNoteToFolder(noteId: string, folderId: string) {
       .insert([{ note_id: noteId, folder_id: folderId }]);
     
     if (error) throw error;
-    
     return true;
   } catch (error: any) {
     toast({
@@ -124,7 +129,6 @@ export async function removeNoteFromFolder(noteId: string, folderId: string) {
       .match({ note_id: noteId, folder_id: folderId });
     
     if (error) throw error;
-    
     return true;
   } catch (error: any) {
     toast({
@@ -133,39 +137,5 @@ export async function removeNoteFromFolder(noteId: string, folderId: string) {
       variant: "destructive",
     });
     return false;
-  }
-}
-
-// Get all folders a note belongs to
-export async function getNotesFolders(noteId: string) {
-  try {
-    const { data, error } = await supabase
-      .from('notes_folders')
-      .select('folder_id')
-      .eq('note_id', noteId);
-    
-    if (error) throw error;
-    
-    if (data && data.length > 0) {
-      const folderIds = data.map(item => item.folder_id);
-      
-      const { data: folders, error: foldersError } = await supabase
-        .from('folders')
-        .select('*')
-        .in('id', folderIds);
-      
-      if (foldersError) throw foldersError;
-      
-      return folders || [];
-    }
-    
-    return [];
-  } catch (error: any) {
-    toast({
-      title: "Error fetching note's folders",
-      description: error.message,
-      variant: "destructive",
-    });
-    return [];
   }
 }

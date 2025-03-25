@@ -29,9 +29,16 @@ export async function fetchNotes(options: {
   try {
     let query = supabase
       .from('notes')
-      .select('*')
-      .eq('is_archived', options.archived ?? false)
-      .eq('is_trashed', options.trashed ?? false);
+      .select('*');
+    
+    // Apply filters based on options
+    if (options.archived !== undefined) {
+      query = query.eq('is_archived', options.archived);
+    }
+    
+    if (options.trashed !== undefined) {
+      query = query.eq('is_trashed', options.trashed);
+    }
     
     if (options.favorite) {
       query = query.eq('is_favorite', true);
@@ -68,9 +75,21 @@ export async function fetchNotes(options: {
 // Create a new note
 export async function createNote(note: Partial<NoteInput>) {
   try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error("You must be logged in to create notes");
+    }
+    
     const { data, error } = await supabase
       .from('notes')
-      .insert([note])
+      .insert([{ 
+        ...note, 
+        user_id: user.id,
+        is_archived: false,
+        is_trashed: false
+      }])
       .select()
       .single();
     
