@@ -1,5 +1,4 @@
 
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Sidebar } from "./Sidebar";
 import { Search } from "@/components/ui/Search";
 import { Plus } from "lucide-react";
@@ -89,7 +88,6 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <span>New Note</span>
                 </Button>
               </Link>
-              <ThemeToggle />
             </div>
           </div>
         </header>

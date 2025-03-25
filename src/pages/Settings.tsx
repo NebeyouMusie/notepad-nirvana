@@ -4,13 +4,16 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
-import { Settings as SettingsIcon, Save, Palette } from "lucide-react";
+import { Settings as SettingsIcon, Save, Palette, Moon, Sun, Monitor } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function SettingsPage() {
   const [savedSettings, setSavedSettings] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [primaryColor, setPrimaryColor] = useState("#0f172a"); // Default color
+  const { theme, setTheme } = useTheme();
   
   useEffect(() => {
     // Get saved primary color from localStorage
@@ -108,6 +111,55 @@ export default function SettingsPage() {
         </motion.div>
         
         <div className="space-y-6">
+          {/* Appearance Section */}
+          <div className="bg-card border rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-medium">Appearance</h2>
+                <p className="text-muted-foreground">
+                  Customize how Notepad looks on your device
+                </p>
+              </div>
+              <Sun className="h-6 w-6 text-muted-foreground" />
+            </div>
+            
+            <div className="space-y-4">
+              {/* Theme selector */}
+              <div>
+                <h3 className="font-medium mb-2">Theme</h3>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setTheme("light")}
+                    className={`flex gap-2 ${theme === "light" ? "border-primary bg-primary/10" : ""}`}
+                  >
+                    <Sun className="h-4 w-4" />
+                    Light
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setTheme("dark")}
+                    className={`flex gap-2 ${theme === "dark" ? "border-primary bg-primary/10" : ""}`}
+                  >
+                    <Moon className="h-4 w-4" />
+                    Dark
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setTheme("system")}
+                    className={`flex gap-2 ${theme === "system" ? "border-primary bg-primary/10" : ""}`}
+                  >
+                    <Monitor className="h-4 w-4" />
+                    System
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           {/* Primary Color Section */}
           <div className="bg-card border rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -168,8 +220,7 @@ export default function SettingsPage() {
                       <Button
                         style={{ 
                           backgroundColor: primaryColor, 
-                          color: getContrastColor(primaryColor),
-                          borderColor: 'transparent'
+                          color: getContrastColor(primaryColor)
                         }}
                       >
                         Primary Button
@@ -180,7 +231,8 @@ export default function SettingsPage() {
                         variant="outline"
                         style={{ 
                           borderColor: primaryColor, 
-                          color: primaryColor
+                          color: primaryColor,
+                          backgroundColor: "transparent"
                         }}
                       >
                         Outline Button
@@ -188,12 +240,13 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <Button
-                        variant="ghost"
+                        variant="secondary"
                         style={{ 
-                          color: primaryColor,
+                          backgroundColor: `${primaryColor}20`,
+                          color: primaryColor
                         }}
                       >
-                        Ghost Button
+                        Secondary Button
                       </Button>
                     </div>
                   </div>
