@@ -12,7 +12,7 @@ export default function Archived() {
 
   const loadNotes = async () => {
     setIsLoading(true);
-    const data = await fetchNotes({ onlyArchived: true });
+    const data = await fetchNotes({ archived: true });
     setNotes(data);
     setIsLoading(false);
   };

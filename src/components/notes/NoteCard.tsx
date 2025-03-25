@@ -7,7 +7,7 @@ import { Note } from "@/services/noteService";
 import { 
   toggleFavorite, 
   trashNote, 
-  toggleArchive 
+  toggleArchived 
 } from "@/services/noteService";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -78,7 +78,7 @@ export function NoteCard({ note, onUpdate }: NoteCardProps) {
     
     setIsUpdating(true);
     try {
-      await toggleArchive(note.id, !note.is_archived);
+      await toggleArchived(note.id, !note.is_archived);
       onUpdate?.();
       toast({
         title: note.is_archived ? "Note unarchived" : "Note archived",

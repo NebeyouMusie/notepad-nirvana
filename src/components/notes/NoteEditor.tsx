@@ -17,11 +17,6 @@ import { Input } from "@/components/ui/input";
 import { createNote, updateNote, NoteInput } from "@/services/noteService";
 import { toast } from "@/hooks/use-toast";
 
-// Import Tiptap
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import TextAlign from '@tiptap/extension-text-align';
-
 interface NoteEditorProps {
   initialContent?: string;
   initialTitle?: string;
@@ -49,34 +44,9 @@ export function NoteEditor({
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-  // Initialize Tiptap editor
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TextAlign.configure({
-        types: ['heading', 'paragraph'],
-        alignments: ['left', 'center', 'right'],
-      }),
-    ],
-    content: initialContent,
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      setContent(html);
-      calculateWordCount(editor.getText());
-    },
-  });
-
   useEffect(() => {
-    if (editor && initialContent) {
-      editor.commands.setContent(initialContent);
-    }
-  }, [editor, initialContent]);
-
-  useEffect(() => {
-    if (editor) {
-      calculateWordCount(editor.getText());
-    }
-  }, [editor]);
+    calculateWordCount(content);
+  }, [content]);
 
   useEffect(() => {
     // Auto-save after 3 seconds of inactivity
@@ -104,6 +74,11 @@ export function NoteEditor({
     setWordCount(text.trim() === "" ? 0 : text.trim().split(/\s+/).length);
   };
 
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    setContent(newContent);
+  };
+
   const handleSave = async () => {
     if (title.trim() === "") {
       toast({
@@ -121,9 +96,7 @@ export function NoteEditor({
         title,
         content,
         color,
-        tags,
-        is_archived: false,
-        is_trashed: false
+        tags
       };
       
       let savedNote;
@@ -183,86 +156,32 @@ export function NoteEditor({
       </div>
       
       <div className="glassmorphism rounded-lg p-1 mb-4 flex flex-wrap gap-1">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().toggleBold().run()}
-          data-active={editor?.isActive('bold')}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <Bold size={16} />
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().toggleItalic().run()}
-          data-active={editor?.isActive('italic')}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <Italic size={16} />
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().toggleBulletList().run()}
-          data-active={editor?.isActive('bulletList')}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <List size={16} />
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-          data-active={editor?.isActive('orderedList')}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <ListOrdered size={16} />
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-          data-active={editor?.isActive('heading', { level: 1 })}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <Heading1 size={16} />
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-          data-active={editor?.isActive('heading', { level: 2 })}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <Heading2 size={16} />
         </Button>
         <div className="flex-1"></div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().setTextAlign('left').run()}
-          data-active={editor?.isActive({ textAlign: 'left' })}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <AlignLeft size={16} />
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().setTextAlign('center').run()}
-          data-active={editor?.isActive({ textAlign: 'center' })}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <AlignCenter size={16} />
         </Button>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8"
-          onClick={() => editor?.chain().focus().setTextAlign('right').run()}
-          data-active={editor?.isActive({ textAlign: 'right' })}
-        >
+        <Button variant="ghost" size="icon" className="h-8 w-8">
           <AlignRight size={16} />
         </Button>
       </div>
@@ -318,8 +237,13 @@ export function NoteEditor({
         )}
       </div>
       
-      <div className="flex-1 relative bg-transparent border rounded-md p-2">
-        <EditorContent editor={editor} className="h-full prose max-w-none" />
+      <div className="flex-1 relative">
+        <textarea
+          value={content}
+          onChange={handleContentChange}
+          className="w-full h-full resize-none bg-transparent border-none outline-none focus:ring-0 p-0"
+          placeholder="Start writing..."
+        />
       </div>
       
       <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground">
