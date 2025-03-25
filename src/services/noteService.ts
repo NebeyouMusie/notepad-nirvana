@@ -90,17 +90,18 @@ export async function createNote(note: Partial<NoteInput>) {
       return null;
     }
     
-    // Ensure title is not undefined
-    if (!note.title || note.title.trim() === "") {
-      note.title = "Untitled";
-    }
+    // Ensure title is not undefined and is a string
+    const title = note.title && note.title.trim() !== "" ? note.title : "Untitled";
+    
+    const noteData = {
+      ...note,
+      title, // Use the non-optional title
+      user_id: session.user.id
+    };
     
     const { data, error } = await supabase
       .from('notes')
-      .insert({
-        ...note,
-        user_id: session.user.id
-      })
+      .insert(noteData)
       .select()
       .single();
     

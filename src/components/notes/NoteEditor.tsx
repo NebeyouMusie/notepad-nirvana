@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Bold, 
@@ -56,6 +56,7 @@ export function NoteEditor({
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(initialFolderId || null);
   const [isFirstRender, setIsFirstRender] = useState(true);
+  const manualSaveRef = useRef(false);
 
   useEffect(() => {
     calculateWordCount(content);
@@ -73,6 +74,12 @@ export function NoteEditor({
     // Set first render flag to false after first render
     if (isFirstRender) {
       setIsFirstRender(false);
+      return;
+    }
+    
+    // Skip auto-save if a manual save was just triggered
+    if (manualSaveRef.current) {
+      manualSaveRef.current = false;
       return;
     }
     
@@ -117,6 +124,7 @@ export function NoteEditor({
     }
     
     setIsSaving(true);
+    manualSaveRef.current = true;
     
     try {
       const noteData: Partial<NoteInput> = {
