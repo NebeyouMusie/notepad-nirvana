@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Toaster } from "@/components/ui/toaster";
 import { Session } from '@supabase/supabase-js';
@@ -43,7 +43,7 @@ export default function App() {
   }
 
   return (
-    <Router>
+    <>
       <Routes>
         <Route 
           path="/auth" 
@@ -84,6 +84,6 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />
-    </Router>
+    </>
   );
 }
