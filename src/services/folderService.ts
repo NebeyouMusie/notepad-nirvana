@@ -21,8 +21,7 @@ export const getFolders = async (): Promise<Folder[]> => {
 };
 
 export const createFolder = async (name: string): Promise<Folder> => {
-  const user = supabase.auth.getUser();
-  const { data: userData } = await user;
+  const { data: userData } = await supabase.auth.getUser();
   
   if (!userData.user) {
     throw new Error("User not authenticated");

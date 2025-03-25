@@ -1,234 +1,172 @@
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import { 
-  ChevronLeft, 
-  ChevronRight, 
+  Archive, 
+  LogOut,
   FolderOpen, 
-  BookOpen, 
+  Inbox, 
+  Plus, 
   Star, 
-  Archive,
-  Plus,
-  Trash,
-  User,
-  LogOut
+  Trash2, 
+  User
 } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { getFolders, createFolder } from "@/services/folderService";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { CreateFolderDialog } from "@/components/folders/CreateFolderDialog";
+import { getFolders, subscribeToFolders } from "@/services/folderService";
 
-interface SidebarProps {
-  className?: string;
-}
+type Folder = {
+  id: string;
+  name: string;
+};
 
-export function Sidebar({ className }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [folders, setFolders] = useState<any[]>([]);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [isAddingFolder, setIsAddingFolder] = useState(false);
+export function Sidebar() {
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const location = useLocation();
-  const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
-  
-  const isActive = (path: string) => location.pathname === path;
-  const isActiveFolder = (id: string) => location.pathname === `/folders/${id}`;
 
   useEffect(() => {
-    const loadFolders = async () => {
+    const fetchFolders = async () => {
       try {
-        if (user) {
-          const data = await getFolders();
-          setFolders(data);
-        }
+        setIsLoading(true);
+        const fetchedFolders = await getFolders();
+        setFolders(fetchedFolders);
       } catch (error) {
-        console.error("Error loading folders:", error);
+        console.error("Error fetching folders:", error);
+        toast({
+          title: "Error loading folders",
+          description: "Could not load your folders",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadFolders();
-  }, [user]);
+    fetchFolders();
+
+    // Set up real-time subscription to folders
+    const unsubscribe = subscribeToFolders((updatedFolders) => {
+      setFolders(updatedFolders);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [toast]);
 
   const handleSignOut = async () => {
     try {
-      await signOut();
-      navigate("/auth");
-    } catch (error) {
-      console.error("Error signing out:", error);
-    }
-  };
-
-  const handleAddFolder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFolderName.trim()) return;
-
-    try {
-      const folder = await createFolder(newFolderName);
-      setFolders([...folders, folder]);
-      setNewFolderName("");
-      setIsAddingFolder(false);
+      await supabase.auth.signOut();
       toast({
-        title: "Folder created",
-        description: `Folder "${newFolderName}" has been created`,
+        title: "Signed out",
+        description: "You have been signed out",
       });
     } catch (error) {
-      console.error("Error creating folder:", error);
+      console.error("Error signing out:", error);
       toast({
         title: "Error",
-        description: "Could not create folder",
+        description: "Could not sign out",
         variant: "destructive",
       });
     }
   };
 
-  return (
-    <>
-      <div
-        className={`transition-all duration-300 ${
-          collapsed ? "w-16" : "w-64"
-        } border-r h-screen flex flex-col fixed left-0 top-0 z-10 bg-background ${className}`}
-      >
-        <div className="flex items-center justify-between p-4">
-          {!collapsed && (
-            <div className="flex items-center space-x-2">
-              <BookOpen className="h-6 w-6 text-primary" />
-              <span className="font-semibold text-lg font-poppins">Notepad</span>
-            </div>
-          )}
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="rounded-full p-1 hover:bg-secondary transition-colors"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
-        </div>
+  const getLinkClass = (isActive: boolean) => {
+    return `flex items-center gap-2 py-2 px-4 rounded-lg transition-colors ${
+      isActive
+        ? "bg-primary/10 text-primary font-medium"
+        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+    }`;
+  };
 
-        <div className="flex-1 overflow-y-auto">
-          <nav className="p-2 space-y-1">
-            <Link
+  return (
+    <div className="w-64 h-full border-r flex flex-col bg-background">
+      <div className="p-4 border-b">
+        <h1 className="text-xl font-semibold font-poppins">Notepad</h1>
+        <p className="text-xs text-muted-foreground font-poppins">Your personal notes app</p>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <nav className="space-y-1 p-2 font-poppins">
+            <NavLink
               to="/"
-              className={`sidebar-item ${isActive("/") ? "active" : ""}`}
+              className={({ isActive }) => getLinkClass(isActive)}
+              end
             >
-              <BookOpen size={18} />
-              {!collapsed && <span>All Notes</span>}
-            </Link>
-            <Link
+              <Inbox size={18} /> <span>All Notes</span>
+            </NavLink>
+            <NavLink
               to="/favorites"
-              className={`sidebar-item ${isActive("/favorites") ? "active" : ""}`}
+              className={({ isActive }) => getLinkClass(isActive)}
             >
-              <Star size={18} />
-              {!collapsed && <span>Favorites</span>}
-            </Link>
-            <Link
+              <Star size={18} /> <span>Favorites</span>
+            </NavLink>
+            <NavLink
               to="/archived"
-              className={`sidebar-item ${isActive("/archived") ? "active" : ""}`}
+              className={({ isActive }) => getLinkClass(isActive)}
             >
-              <Archive size={18} />
-              {!collapsed && <span>Archived</span>}
-            </Link>
-            
-            {!collapsed && (
-              <div className="py-2">
-                <div className="flex items-center justify-between px-3 py-2">
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    FOLDERS
-                  </span>
-                  <button 
-                    className="rounded-full p-1 hover:bg-secondary transition-colors"
-                    onClick={() => setIsAddingFolder(true)}
-                  >
-                    <Plus size={14} />
-                  </button>
-                </div>
-                
-                <div className="space-y-1">
-                  {folders.map((folder) => (
-                    <Link
+              <Archive size={18} /> <span>Archived</span>
+            </NavLink>
+          </nav>
+
+          <div className="p-2 border-t mt-2">
+            <div className="flex items-center justify-between py-2 px-4">
+              <h2 className="text-sm font-semibold font-poppins">Folders</h2>
+              <CreateFolderDialog />
+            </div>
+
+            <ScrollArea className="h-[calc(100vh-350px)]">
+              <div className="space-y-1 pr-2 font-poppins">
+                {isLoading ? (
+                  <div className="flex justify-center py-4">
+                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-primary"></div>
+                  </div>
+                ) : folders.length > 0 ? (
+                  folders.map((folder) => (
+                    <NavLink
                       key={folder.id}
                       to={`/folders/${folder.id}`}
-                      className={`sidebar-item ${isActiveFolder(folder.id) ? "active" : ""}`}
+                      className={({ isActive }) => getLinkClass(isActive)}
                     >
-                      <FolderOpen size={18} />
-                      <span className="truncate">{folder.name}</span>
-                    </Link>
-                  ))}
-                  
-                  {folders.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">
-                      No folders yet
-                    </div>
-                  )}
-                </div>
+                      <FolderOpen size={18} /> <span className="truncate">{folder.name}</span>
+                    </NavLink>
+                  ))
+                ) : (
+                  <div className="text-sm text-center text-muted-foreground py-4">
+                    No folders yet
+                  </div>
+                )}
               </div>
-            )}
-          </nav>
-        </div>
-
-        <div className="border-t p-2 mt-auto">
-          <div className="space-y-1">
-            <Link
-              to="/account"
-              className={`sidebar-item ${isActive("/account") ? "active" : ""}`}
-            >
-              <User size={18} />
-              {!collapsed && <span>Account</span>}
-            </Link>
-            <Link
-              to="/trash"
-              className={`sidebar-item ${isActive("/trash") ? "active" : ""}`}
-            >
-              <Trash size={18} />
-              {!collapsed && <span>Trash</span>}
-            </Link>
-            <button 
-              onClick={handleSignOut}
-              className="sidebar-item w-full text-left"
-            >
-              <LogOut size={18} />
-              {!collapsed && <span>Sign Out</span>}
-            </button>
+            </ScrollArea>
           </div>
         </div>
+
+        <div className="border-t p-2 space-y-1 mt-auto font-poppins">
+          <NavLink
+            to="/account"
+            className={({ isActive }) => getLinkClass(isActive)}
+          >
+            <User size={18} /> <span>Account</span>
+          </NavLink>
+          <NavLink
+            to="/trash"
+            className={({ isActive }) => getLinkClass(isActive)}
+          >
+            <Trash2 size={18} /> <span>Trash</span>
+          </NavLink>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-2 py-2 px-4 rounded-lg transition-colors text-muted-foreground hover:bg-accent hover:text-accent-foreground w-full text-left"
+          >
+            <LogOut size={18} /> <span>Sign Out</span>
+          </button>
+        </div>
       </div>
-      
-      {/* Create a spacer div that matches the width of the sidebar */}
-      <div className={`transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}></div>
-      
-      <Dialog open={isAddingFolder} onOpenChange={setIsAddingFolder}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create New Folder</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddFolder}>
-            <div className="py-4">
-              <Input
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Folder name"
-                className="w-full"
-                autoFocus
-              />
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Cancel</Button>
-              </DialogClose>
-              <Button type="submit" disabled={!newFolderName.trim()}>Create Folder</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
+    </div>
   );
 }

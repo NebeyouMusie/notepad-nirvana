@@ -21,9 +21,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-screen font-poppins">
-      <Sidebar />
+      <div className="fixed h-screen z-20">
+        <Sidebar />
+      </div>
       
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden ml-64">
         <header className="border-b glassmorphism backdrop-blur-xl sticky top-0 z-10">
           <div className="flex items-center justify-between p-4">
             <Search onSearch={handleSearch} />

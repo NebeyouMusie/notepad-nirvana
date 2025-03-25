@@ -25,13 +25,13 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
-    onSearch?.(value);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
       navigate(`/search?q=${encodeURIComponent(query)}`);
+      onSearch?.(query);
     }
   };
 
