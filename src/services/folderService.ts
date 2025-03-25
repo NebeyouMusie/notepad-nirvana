@@ -60,6 +60,36 @@ export async function createFolder(name: string) {
   }
 }
 
+// Update a folder
+export async function updateFolder(id: string, name: string) {
+  try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error("You must be logged in to update folders");
+    }
+    
+    const { data, error } = await supabase
+      .from('folders')
+      .update({ name })
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error: any) {
+    toast({
+      title: "Error updating folder",
+      description: error.message,
+      variant: "destructive",
+    });
+    return null;
+  }
+}
+
 // Get a folder by ID
 export async function getFolder(id: string) {
   try {
