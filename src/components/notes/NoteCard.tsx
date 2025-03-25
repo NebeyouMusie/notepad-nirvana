@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Star, Trash, MoreHorizontal } from "lucide-react";
 import { motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
+import { toggleFavorite, deleteNote } from "@/services/noteService";
 
 export interface NoteProps {
   id: string;
@@ -16,6 +18,8 @@ export interface NoteProps {
 
 export function NoteCard({ id, title, content, createdAt, isFavorite = false, tags = [], color = "#FFFFFF" }: NoteProps) {
   const [favorite, setFavorite] = useState(isFavorite);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
   
   const formattedDate = new Date(createdAt).toLocaleDateString('en-US', {
     month: 'short',
@@ -24,8 +28,46 @@ export function NoteCard({ id, title, content, createdAt, isFavorite = false, ta
   
   const excerpt = content.length > 100 ? `${content.substring(0, 100)}...` : content;
   
-  const cardStyle = {
-    backgroundColor: color,
+  const handleToggleFavorite = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    try {
+      setFavorite(!favorite);
+      await toggleFavorite(id, !favorite);
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      setFavorite(favorite); // Revert on error
+      toast({
+        title: "Error",
+        description: "Could not update favorite status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.confirm("Are you sure you want to delete this note?")) {
+      try {
+        setIsDeleting(true);
+        await deleteNote(id);
+        toast({
+          title: "Note deleted",
+          description: "Your note has been moved to trash",
+        });
+      } catch (error) {
+        console.error("Error deleting note:", error);
+        toast({
+          title: "Error",
+          description: "Could not delete note",
+          variant: "destructive",
+        });
+        setIsDeleting(false);
+      }
+    }
   };
 
   return (
@@ -33,9 +75,11 @@ export function NoteCard({ id, title, content, createdAt, isFavorite = false, ta
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className={isDeleting ? "hidden" : ""}
     >
       <div 
-        className="note-card group"
+        className="note-card group rounded-lg border p-4 h-64 flex flex-col relative transition-all hover:shadow-md"
         style={{
           background: `linear-gradient(135deg, ${color}10, ${color}30)`,
           borderColor: `${color}30`,
@@ -43,15 +87,18 @@ export function NoteCard({ id, title, content, createdAt, isFavorite = false, ta
       >
         <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setFavorite(!favorite);
-            }}
+            onClick={handleToggleFavorite}
             className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
             aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
           >
             <Star size={16} className={favorite ? "fill-yellow-400 text-yellow-400" : ""} />
+          </button>
+          <button
+            onClick={handleDelete}
+            className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            aria-label="Delete note"
+          >
+            <Trash size={16} />
           </button>
           <button
             className="rounded-full p-1 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
