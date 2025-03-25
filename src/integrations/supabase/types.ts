@@ -36,12 +36,9 @@ export type Database = {
           content: string | null
           created_at: string
           id: string
-          is_archived: boolean | null
           is_favorite: boolean | null
-          is_trashed: boolean | null
           tags: string[] | null
           title: string
-          trashed_at: string | null
           updated_at: string
           user_id: string
         }
@@ -50,12 +47,9 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
-          is_archived?: boolean | null
           is_favorite?: boolean | null
-          is_trashed?: boolean | null
           tags?: string[] | null
           title: string
-          trashed_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -64,12 +58,9 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
-          is_archived?: boolean | null
           is_favorite?: boolean | null
-          is_trashed?: boolean | null
           tags?: string[] | null
           title?: string
-          trashed_at?: string | null
           updated_at?: string
           user_id?: string
         }

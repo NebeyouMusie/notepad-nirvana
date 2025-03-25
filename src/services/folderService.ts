@@ -12,17 +12,6 @@ export interface Folder {
 // Fetch all folders for the current user
 export async function fetchFolders() {
   try {
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to view your folders",
-        variant: "destructive",
-      });
-      return [];
-    }
-
     const { data, error } = await supabase
       .from('folders')
       .select('*')
@@ -43,21 +32,9 @@ export async function fetchFolders() {
 // Create a new folder
 export async function createFolder(name: string) {
   try {
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to create folders",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    // Include user_id in the folder creation
     const { data, error } = await supabase
       .from('folders')
-      .insert([{ name, user_id: session.user.id }])
+      .insert([{ name }])
       .select()
       .single();
     
@@ -77,17 +54,6 @@ export async function createFolder(name: string) {
 // Update a folder name
 export async function updateFolder(id: string, name: string) {
   try {
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to update folders",
-        variant: "destructive",
-      });
-      return null;
-    }
-
     const { data, error } = await supabase
       .from('folders')
       .update({ name })
@@ -111,17 +77,6 @@ export async function updateFolder(id: string, name: string) {
 // Delete a folder
 export async function deleteFolder(id: string) {
   try {
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to delete folders",
-        variant: "destructive",
-      });
-      return false;
-    }
-
     const { error } = await supabase
       .from('folders')
       .delete()
@@ -143,17 +98,6 @@ export async function deleteFolder(id: string) {
 // Add a note to a folder
 export async function addNoteToFolder(noteId: string, folderId: string) {
   try {
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to update notes",
-        variant: "destructive",
-      });
-      return false;
-    }
-
     const { error } = await supabase
       .from('notes_folders')
       .insert([{ note_id: noteId, folder_id: folderId }]);
@@ -174,17 +118,6 @@ export async function addNoteToFolder(noteId: string, folderId: string) {
 // Remove a note from a folder
 export async function removeNoteFromFolder(noteId: string, folderId: string) {
   try {
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to update notes",
-        variant: "destructive",
-      });
-      return false;
-    }
-
     const { error } = await supabase
       .from('notes_folders')
       .delete()
@@ -206,17 +139,6 @@ export async function removeNoteFromFolder(noteId: string, folderId: string) {
 // Get all folders a note belongs to
 export async function getNotesFolders(noteId: string) {
   try {
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to view folders",
-        variant: "destructive",
-      });
-      return [];
-    }
-
     const { data, error } = await supabase
       .from('notes_folders')
       .select('folder_id')
