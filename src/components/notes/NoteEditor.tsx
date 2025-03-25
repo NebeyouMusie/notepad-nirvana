@@ -11,11 +11,19 @@ import {
   AlignRight, 
   Heading1, 
   Heading2,
-  Hash
+  Hash,
+  FolderOpen
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { createNote, updateNote, NoteInput } from "@/services/noteService";
 import { toast } from "@/hooks/use-toast";
+import { addNoteToFolder, fetchFolders, Folder } from "@/services/folderService";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface NoteEditorProps {
   initialContent?: string;
@@ -24,6 +32,7 @@ interface NoteEditorProps {
   initialColor?: string;
   noteId?: string;
   onSave?: (id: string) => void;
+  initialFolderId?: string;
 }
 
 export function NoteEditor({ 
@@ -32,7 +41,8 @@ export function NoteEditor({
   initialTags = [],
   initialColor = "#FFFFFF",
   noteId,
-  onSave 
+  onSave,
+  initialFolderId
 }: NoteEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
@@ -43,13 +53,30 @@ export function NoteEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(initialFolderId || null);
+  const [isFirstRender, setIsFirstRender] = useState(true);
 
   useEffect(() => {
     calculateWordCount(content);
-  }, [content]);
+    
+    // Load folders
+    const loadFolders = async () => {
+      const foldersData = await fetchFolders();
+      setFolders(foldersData);
+    };
+    
+    loadFolders();
+  }, []);
 
   useEffect(() => {
-    // Auto-save after 3 seconds of inactivity
+    // Set first render flag to false after first render
+    if (isFirstRender) {
+      setIsFirstRender(false);
+      return;
+    }
+    
+    // Auto-save after 3 seconds of inactivity, but only if not first render
     if (autoSaveTimer) {
       clearTimeout(autoSaveTimer);
     }
@@ -107,6 +134,11 @@ export function NoteEditor({
       } else {
         // Create new note
         savedNote = await createNote(noteData);
+        
+        // If there's a selected folder, add the note to it
+        if (savedNote && selectedFolderId) {
+          await addNoteToFolder(savedNote.id, selectedFolderId);
+        }
       }
       
       if (savedNote) {
@@ -130,6 +162,21 @@ export function NoteEditor({
 
   const removeTag = (tagToRemove: string) => {
     setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const selectFolder = async (folderId: string) => {
+    setSelectedFolderId(folderId);
+    
+    // If the note already exists and folder is selected, add the note to the folder
+    if (noteId) {
+      const success = await addNoteToFolder(noteId, folderId);
+      if (success) {
+        toast({
+          title: "Note added to folder",
+          description: `Note added to ${folders.find(f => f.id === folderId)?.name || 'folder'}`,
+        });
+      }
+    }
   };
 
   // Color options
@@ -235,6 +282,36 @@ export function NoteEditor({
             ))}
           </div>
         )}
+      </div>
+      
+      {/* Folder Selection */}
+      <div className="glassmorphism rounded-lg p-3 mb-4">
+        <div className="mb-2 text-sm font-medium">Folder</div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full justify-start">
+              <FolderOpen className="mr-2 h-4 w-4" />
+              {selectedFolderId 
+                ? folders.find(f => f.id === selectedFolderId)?.name || 'Select Folder'
+                : 'Select Folder'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56">
+            {folders.length > 0 ? (
+              folders.map((folder) => (
+                <DropdownMenuItem 
+                  key={folder.id}
+                  onClick={() => selectFolder(folder.id)}
+                >
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  {folder.name}
+                </DropdownMenuItem>
+              ))
+            ) : (
+              <DropdownMenuItem disabled>No folders available</DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       
       <div className="flex-1 relative">

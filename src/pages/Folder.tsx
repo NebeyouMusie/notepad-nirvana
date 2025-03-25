@@ -5,11 +5,12 @@ import { NoteGrid } from "@/components/notes/NoteGrid";
 import { fetchNotes, Note } from "@/services/noteService";
 import { Folder, fetchFolders, updateFolder, deleteFolder } from "@/services/folderService";
 import { motion } from "framer-motion";
-import { Loader2, Pencil, Trash2, FolderOpen } from "lucide-react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Loader2, Pencil, Trash2, FolderOpen, Plus } from "lucide-react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -91,8 +92,17 @@ export default function FolderPage() {
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-6">
+            <Skeleton className="h-10 w-64 mb-2" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-64 w-full" />
+            ))}
+          </div>
         </div>
       </AppLayout>
     );
@@ -156,6 +166,12 @@ export default function FolderPage() {
             <div className="flex items-center gap-2">
               {!isEditing && (
                 <>
+                  <Link to={`/new`} state={{ folderId: id }}>
+                    <Button className="gap-1">
+                      <Plus size={18} />
+                      <span>New Note</span>
+                    </Button>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -181,7 +197,19 @@ export default function FolderPage() {
           </p>
         </motion.div>
         
-        <NoteGrid notes={notes} onUpdate={loadData} />
+        {notes.length > 0 ? (
+          <NoteGrid notes={notes} onUpdate={loadData} />
+        ) : (
+          <div className="text-center py-12 bg-muted/20 rounded-lg">
+            <p className="text-muted-foreground mb-4">No notes in this folder yet</p>
+            <Link to={`/new`} state={{ folderId: id }}>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create your first note
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

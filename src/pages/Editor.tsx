@@ -2,19 +2,24 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteEditor } from "@/components/notes/NoteEditor";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { getNote } from "@/services/noteService";
 import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Editor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [note, setNote] = useState<any>(null);
 
+  // Extract folderId from location state if present
+  const folderId = location.state?.folderId;
+  
   const isNewNote = !id || id === "new";
   
   useEffect(() => {
@@ -57,8 +62,14 @@ export default function Editor() {
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="flex justify-center items-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="max-w-3xl mx-auto h-[calc(100vh-12rem)]">
+          <Skeleton className="h-10 w-full mb-4" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-8 w-1/2" />
+          </div>
+          <Skeleton className="h-48 w-full mt-4" />
         </div>
       </AppLayout>
     );
@@ -78,6 +89,7 @@ export default function Editor() {
           initialContent={isNewNote ? "" : note?.content || ""}
           initialTags={isNewNote ? [] : note?.tags || []}
           initialColor={isNewNote ? "#FFFFFF" : note?.color || "#FFFFFF"}
+          initialFolderId={folderId}
           onSave={handleSave}
         />
       </motion.div>

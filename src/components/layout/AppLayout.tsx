@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -14,6 +15,30 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { user, isLoading } = useAuth();
+
+  // Load and apply custom primary color on component mount
+  useEffect(() => {
+    const savedColor = localStorage.getItem('primaryColor');
+    if (savedColor) {
+      document.documentElement.style.setProperty('--primary', savedColor);
+      
+      // Helper function to determine if a color is light or dark
+      const isLightColor = (color: string) => {
+        const hex = color.replace('#', '');
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        return brightness > 128;
+      };
+      
+      // Set the foreground color based on the primary color's lightness
+      document.documentElement.style.setProperty(
+        '--primary-foreground', 
+        isLightColor(savedColor) ? '#000000' : '#ffffff'
+      );
+    }
+  }, []);
 
   // If user is not logged in, redirect to auth page
   if (!isLoading && !user) {

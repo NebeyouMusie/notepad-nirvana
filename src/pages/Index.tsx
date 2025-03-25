@@ -5,6 +5,7 @@ import { NoteGrid } from "@/components/notes/NoteGrid";
 import { fetchNotes, Note } from "@/services/noteService";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Index() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -39,8 +40,10 @@ export default function Index() {
         </motion.div>
         
         {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Skeleton key={i} className="h-64 w-full" />
+            ))}
           </div>
         ) : (
           <NoteGrid notes={notes} onUpdate={loadNotes} />
