@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -15,33 +14,6 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { user, isLoading } = useAuth();
-
-  useEffect(() => {
-    // Apply the primary color from localStorage if exists
-    const primaryColor = localStorage.getItem("primaryColor");
-    if (primaryColor) {
-      document.documentElement.style.setProperty('--primary', primaryColor);
-
-      // Apply additional styling for primary color
-      const style = document.createElement('style');
-      style.innerHTML = `
-        .text-primary, .bg-primary, .border-primary, .ring-primary {
-          color: ${primaryColor};
-        }
-        .bg-primary {
-          background-color: ${primaryColor};
-        }
-        .border-primary {
-          border-color: ${primaryColor};
-        }
-      `;
-      document.head.appendChild(style);
-
-      return () => {
-        document.head.removeChild(style);
-      };
-    }
-  }, []);
 
   // If user is not logged in, redirect to auth page
   if (!isLoading && !user) {

@@ -41,7 +41,6 @@ export async function fetchNotes(options: {
     let query = supabase
       .from('notes')
       .select('*')
-      .eq('user_id', session.user.id)
       .eq('is_archived', options.archived ?? false)
       .eq('is_trashed', options.trashed ?? false);
     
@@ -91,16 +90,12 @@ export async function createNote(note: Partial<NoteInput>) {
       return null;
     }
     
-    // Ensure title is not undefined and has a default value
-    const noteWithRequiredFields = {
-      ...note,
-      title: note.title || "Untitled",
-      user_id: session.user.id
-    };
-    
     const { data, error } = await supabase
       .from('notes')
-      .insert(noteWithRequiredFields)
+      .insert([{ 
+        ...note,
+        user_id: session.user.id 
+      }])
       .select()
       .single();
     
@@ -135,7 +130,6 @@ export async function updateNote(id: string, updates: Partial<NoteInput>) {
       .from('notes')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('user_id', session.user.id)
       .select()
       .single();
     
@@ -170,7 +164,6 @@ export async function getNote(id: string) {
       .from('notes')
       .select('*')
       .eq('id', id)
-      .eq('user_id', session.user.id)
       .single();
     
     if (error) throw error;
@@ -203,8 +196,7 @@ export async function deleteNote(id: string) {
     const { error } = await supabase
       .from('notes')
       .delete()
-      .eq('id', id)
-      .eq('user_id', session.user.id);
+      .eq('id', id);
     
     if (error) throw error;
     
@@ -240,7 +232,6 @@ export async function trashNote(id: string) {
         trashed_at: new Date().toISOString() 
       })
       .eq('id', id)
-      .eq('user_id', session.user.id)
       .select()
       .single();
     
@@ -278,7 +269,6 @@ export async function restoreNote(id: string) {
         trashed_at: null 
       })
       .eq('id', id)
-      .eq('user_id', session.user.id)
       .select()
       .single();
     
@@ -313,7 +303,6 @@ export async function toggleFavorite(id: string, isFavorite: boolean) {
       .from('notes')
       .update({ is_favorite: isFavorite })
       .eq('id', id)
-      .eq('user_id', session.user.id)
       .select()
       .single();
     
@@ -348,7 +337,6 @@ export async function toggleArchived(id: string, isArchived: boolean) {
       .from('notes')
       .update({ is_archived: isArchived })
       .eq('id', id)
-      .eq('user_id', session.user.id)
       .select()
       .single();
     
