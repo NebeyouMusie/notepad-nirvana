@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -10,18 +10,9 @@ import {
   Plus,
   Trash,
   User,
-  Settings,
-  LogOut
+  Settings
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { fetchFolders, Folder } from "@/services/folderService";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { createFolder } from "@/services/folderService";
-import { toast } from "@/hooks/use-toast";
 
 interface SidebarProps {
   className?: string;
@@ -29,55 +20,9 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [newFolderName, setNewFolderName] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  
   const location = useLocation();
-  const { signOut } = useAuth();
   
   const isActive = (path: string) => location.pathname === path;
-  const isFolderActive = (id: string) => location.pathname === `/folders/${id}`;
-
-  useEffect(() => {
-    const loadFolders = async () => {
-      const data = await fetchFolders();
-      setFolders(data);
-    };
-    
-    loadFolders();
-  }, []);
-
-  const handleCreateFolder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!newFolderName.trim()) {
-      toast({
-        title: "Error",
-        description: "Folder name cannot be empty",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      const folder = await createFolder(newFolderName);
-      if (folder) {
-        setFolders([...folders, folder]);
-        setNewFolderName("");
-        setIsDialogOpen(false);
-        toast({
-          title: "Success",
-          description: "Folder created successfully",
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div
@@ -131,54 +76,32 @@ export function Sidebar({ className }: SidebarProps) {
                 <span className="text-xs font-semibold text-muted-foreground">
                   FOLDERS
                 </span>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <button className="rounded-full p-1 hover:bg-secondary transition-colors">
-                      <Plus size={14} />
-                    </button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create New Folder</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleCreateFolder} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="folderName">Folder Name</Label>
-                        <Input
-                          id="folderName"
-                          value={newFolderName}
-                          onChange={(e) => setNewFolderName(e.target.value)}
-                          placeholder="Enter folder name"
-                          required
-                        />
-                      </div>
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setIsDialogOpen(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button type="submit" disabled={isLoading}>
-                          {isLoading ? "Creating..." : "Create Folder"}
-                        </Button>
-                      </div>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                <button className="rounded-full p-1 hover:bg-secondary transition-colors">
+                  <Plus size={14} />
+                </button>
               </div>
               <div className="space-y-1">
-                {folders.map((folder) => (
-                  <Link
-                    key={folder.id}
-                    to={`/folders/${folder.id}`}
-                    className={`sidebar-item ${isFolderActive(folder.id) ? "active" : ""}`}
-                  >
-                    <FolderOpen size={18} />
-                    <span>{folder.name}</span>
-                  </Link>
-                ))}
+                <Link
+                  to="/folders/personal"
+                  className={`sidebar-item ${isActive("/folders/personal") ? "active" : ""}`}
+                >
+                  <FolderOpen size={18} />
+                  <span>Personal</span>
+                </Link>
+                <Link
+                  to="/folders/work"
+                  className={`sidebar-item ${isActive("/folders/work") ? "active" : ""}`}
+                >
+                  <FolderOpen size={18} />
+                  <span>Work</span>
+                </Link>
+                <Link
+                  to="/folders/ideas"
+                  className={`sidebar-item ${isActive("/folders/ideas") ? "active" : ""}`}
+                >
+                  <FolderOpen size={18} />
+                  <span>Ideas</span>
+                </Link>
               </div>
             </div>
           )}
@@ -201,20 +124,10 @@ export function Sidebar({ className }: SidebarProps) {
             <Settings size={18} />
             {!collapsed && <span>Settings</span>}
           </Link>
-          <Link
-            to="/account"
-            className={`sidebar-item ${isActive("/account") ? "active" : ""}`}
-          >
+          <div className="sidebar-item">
             <User size={18} />
             {!collapsed && <span>Account</span>}
-          </Link>
-          <button
-            onClick={() => signOut()}
-            className="sidebar-item w-full text-left"
-          >
-            <LogOut size={18} />
-            {!collapsed && <span>Sign Out</span>}
-          </button>
+          </div>
         </div>
       </div>
     </div>

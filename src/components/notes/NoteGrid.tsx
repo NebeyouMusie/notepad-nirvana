@@ -1,23 +1,14 @@
 
+import { useEffect, useRef, useState } from "react";
+import { NoteCard, NoteProps } from "./NoteCard";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Note } from "@/services/noteService";
-import { NoteCard } from "./NoteCard";
 
 interface NoteGridProps {
-  notes: Note[];
-  onUpdate?: () => void;
+  notes: NoteProps[];
 }
 
-export function NoteGrid({ notes, onUpdate }: NoteGridProps) {
+export function NoteGrid({ notes }: NoteGridProps) {
   const isMobile = useIsMobile();
-  
-  if (notes.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">No notes found</p>
-      </div>
-    );
-  }
   
   return (
     <div className={`grid gap-4 auto-rows-fr ${
@@ -26,11 +17,7 @@ export function NoteGrid({ notes, onUpdate }: NoteGridProps) {
         : 'grid-cols-2 lg:grid-cols-3'
     }`}>
       {notes.map((note) => (
-        <NoteCard 
-          key={note.id} 
-          note={note} 
-          onUpdate={onUpdate} 
-        />
+        <NoteCard key={note.id} {...note} />
       ))}
     </div>
   );
