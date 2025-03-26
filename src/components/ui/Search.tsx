@@ -1,189 +1,144 @@
 
-import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { Search as SearchIcon, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { fetchNotes } from "@/services/noteService";
-import { useClickOutside } from "@/hooks/use-click-outside";
+import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
+import { useOnClickOutside } from "@/hooks/use-click-outside";
 
-export function Search() {
-  const [isOpen, setIsOpen] = useState(false);
+interface SearchProps {
+  onSearch?: (query: string) => void;
+  placeholder?: string;
+}
+
+export function Search({ onSearch, placeholder = "Search notes..." }: SearchProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
 
-  useClickOutside(searchRef, () => {
-    setIsOpen(false);
-  });
+  useOnClickOutside(searchRef, () => setShowResults(false));
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setIsOpen((prev) => !prev);
-      }
-      
-      if (e.key === "Escape") {
-        setIsOpen(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuery(value);
+    onSearch?.(value);
+    
+    if (value.trim().length > 0) {
+      setShowResults(true);
+      searchNotes(value);
+    } else {
+      setShowResults(false);
+      setResults([]);
     }
-  }, [isOpen]);
-
-  useEffect(() => {
-    const searchNotes = async () => {
-      if (query.trim().length === 0) {
-        setResults([]);
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const notes = await fetchNotes();
-        
-        // Search in title, content (stripping HTML tags), and tags
-        const filteredNotes = notes.filter((note) => {
-          const lowerQuery = query.toLowerCase();
-          const titleMatch = note.title.toLowerCase().includes(lowerQuery);
-          
-          // Strip HTML tags for content search
-          const contentText = note.content ? note.content.replace(/<[^>]*>/g, ' ').toLowerCase() : '';
-          const contentMatch = contentText.includes(lowerQuery);
-          
-          // Tag search
-          const tagMatch = note.tags && note.tags.some((tag: string) => 
-            tag.toLowerCase().includes(lowerQuery)
-          );
-          
-          return titleMatch || contentMatch || tagMatch;
-        });
-        
-        setResults(filteredNotes);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    const debounceTimer = setTimeout(searchNotes, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [query]);
-
-  const handleSelectNote = (id: string) => {
-    setIsOpen(false);
-    setQuery("");
-    navigate(`/notes/${id}`);
   };
 
-  const toggleSearch = () => {
-    setIsOpen(!isOpen);
+  // Extract plain text from HTML
+  const getTextFromHtml = (html: string | null) => {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
   };
 
-  const closeSearch = () => {
+  const searchNotes = async (searchQuery: string) => {
+    if (searchQuery.trim().length === 0) return;
+    
+    setIsSearching(true);
+    
+    try {
+      // Search in title, content, and tags, only non-trashed notes
+      const { data, error } = await supabase
+        .from('notes')
+        .select('id, title, content, color, tags')
+        .eq('is_trashed', false)
+        .or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,tags.cs.{${searchQuery}}`)
+        .limit(5);
+      
+      if (error) throw error;
+      
+      setResults(data || []);
+    } catch (error) {
+      console.error('Error searching notes:', error);
+      setResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+  
+  const clearSearch = () => {
     setQuery("");
-    setIsOpen(false);
+    setResults([]);
+    setShowResults(false);
   };
 
   return (
-    <div ref={searchRef} className="relative">
-      <Button
-        variant="ghost"
-        className="px-2"
-        onClick={toggleSearch}
-        aria-label="Search"
-      >
-        <SearchIcon className="h-5 w-5" />
-        <span className="sr-only md:not-sr-only md:ml-2 text-sm">
-          Search
-        </span>
-        <kbd className="hidden md:inline-flex ml-2 pointer-events-none h-5 select-none items-center gap-1 rounded border px-1.5 text-[10px] font-medium text-muted-foreground">
-          <span className="text-xs">⌘</span>K
-        </kbd>
-      </Button>
-
-      {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-80 md:w-96 bg-background border rounded-md shadow-lg z-50">
-          <div className="flex items-center border-b p-2">
-            <SearchIcon className="h-4 w-4 mr-2 text-muted-foreground" />
-            <Input
-              ref={inputRef}
-              type="text"
-              placeholder="Search notes..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={closeSearch}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="max-h-80 overflow-y-auto p-1">
-            {isLoading ? (
-              <div className="p-2 text-center text-sm text-muted-foreground">
-                Searching...
-              </div>
-            ) : results.length > 0 ? (
-              results.map((note) => (
-                <button
-                  key={note.id}
-                  className="w-full text-left p-2 hover:bg-muted rounded-md flex items-start"
-                  onClick={() => handleSelectNote(note.id)}
-                >
-                  <div>
-                    <div className="font-medium truncate">{note.title}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {note.content ? (
-                        note.content.replace(/<[^>]*>/g, ' ').substring(0, 50) + (note.content.length > 50 ? '...' : '')
-                      ) : (
-                        'No content'
-                      )}
-                    </div>
-                    {note.tags && note.tags.length > 0 && (
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        {note.tags.slice(0, 3).map((tag: string) => (
-                          <span
-                            key={tag}
-                            className="px-1.5 py-0.5 bg-muted rounded-full text-[10px]"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                        {note.tags.length > 3 && (
-                          <span className="text-[10px] text-muted-foreground">
-                            +{note.tags.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    )}
+    <div className="relative w-full max-w-md" ref={searchRef}>
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+          <SearchIcon className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <input
+          type="text"
+          className="w-full rounded-full bg-secondary/50 border-transparent py-2 pl-10 pr-10 text-sm 
+                    focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent"
+          placeholder={placeholder}
+          value={query}
+          onChange={handleChange}
+          onFocus={() => query.trim().length > 0 && setShowResults(true)}
+        />
+        {query.trim().length > 0 && (
+          <button 
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+            onClick={clearSearch}
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      
+      {showResults && (
+        <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-lg">
+          <div className="p-2">
+            <h3 className="text-xs font-medium text-muted-foreground mb-2">
+              {isSearching 
+                ? "Searching..." 
+                : results.length > 0 
+                  ? "Search Results" 
+                  : "No results found"}
+            </h3>
+            
+            {results.map((note) => (
+              <Link 
+                key={note.id} 
+                to={`/notes/${note.id}`}
+                className="block rounded-md p-2 hover:bg-accent/50 transition-colors"
+                onClick={() => setShowResults(false)}
+              >
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="h-3 w-3 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: note.color || '#FFFFFF' }}
+                  />
+                  <h4 className="text-sm font-medium line-clamp-1">{note.title}</h4>
+                </div>
+                {note.content && (
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1 pl-5">
+                    {getTextFromHtml(note.content)}
+                  </p>
+                )}
+                {note.tags && note.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1 pl-5">
+                    {note.tags.map((tag: string, index: number) => (
+                      <span key={index} className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                        {tag}
+                      </span>
+                    ))}
                   </div>
-                </button>
-              ))
-            ) : query.trim() !== "" ? (
-              <div className="p-2 text-center text-sm text-muted-foreground">
-                No results found.
-              </div>
-            ) : (
-              <div className="p-2 text-center text-sm text-muted-foreground">
-                Type to search notes.
-              </div>
-            )}
+                )}
+              </Link>
+            ))}
           </div>
         </div>
       )}
