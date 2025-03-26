@@ -72,7 +72,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 
@@ -133,5 +133,10 @@
   
   .sidebar-item.active {
     @apply bg-primary text-primary-foreground;
+  }
+  
+  /* Delete button styles - ensure they're always red */
+  .btn-delete {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 !important;
   }
 }

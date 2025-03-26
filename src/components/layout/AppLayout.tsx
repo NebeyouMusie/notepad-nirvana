@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -14,6 +14,12 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { user, isLoading } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Handle sidebar toggle events
+  const handleSidebarToggle = (collapsed: boolean) => {
+    setSidebarCollapsed(collapsed);
+  };
 
   // Load and apply custom primary color on component mount
   useEffect(() => {
@@ -117,9 +123,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-full">
-      <Sidebar />
+      <Sidebar onToggle={handleSidebarToggle} />
       
-      <div className="flex-1 flex flex-col h-full overflow-hidden ml-64">
+      <div className={`flex-1 flex flex-col h-full overflow-hidden transition-all duration-300 ${
+        sidebarCollapsed ? 'ml-16' : 'ml-64'
+      }`}>
         <header className="border-b bg-background/90 backdrop-blur-xl sticky top-0 z-10">
           <div className="flex items-center justify-between p-4">
             <Search />

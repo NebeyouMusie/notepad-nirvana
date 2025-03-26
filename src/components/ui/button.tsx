@@ -23,26 +23,42 @@ const buttonVariants = cva(
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10",
       },
+      isDelete: {
+        true: "bg-destructive text-destructive-foreground hover:bg-destructive/90 border border-destructive/20",
+        false: "",
+      },
     },
     defaultVariants: {
       variant: "default",
       size: "default",
+      isDelete: "false",
     },
+    compoundVariants: [
+      {
+        isDelete: "true",
+        className: "bg-destructive text-destructive-foreground hover:bg-destructive/90 border border-destructive/20",
+      },
+    ],
   }
 )
 
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
-  asChild?: boolean
+  asChild?: boolean;
+  isDelete?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, isDelete, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button"
+    
+    // Override variant if isDelete is true
+    const effectiveVariant = isDelete ? "destructive" : variant;
+    
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant: effectiveVariant, size, isDelete, className }))}
         ref={ref}
         {...props}
       />

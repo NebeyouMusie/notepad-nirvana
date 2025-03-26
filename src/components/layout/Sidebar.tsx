@@ -25,9 +25,10 @@ import { toast } from "@/hooks/use-toast";
 
 interface SidebarProps {
   className?: string;
+  onToggle?: (collapsed: boolean) => void;
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, onToggle }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
@@ -79,6 +80,14 @@ export function Sidebar({ className }: SidebarProps) {
     }
   };
 
+  const toggleSidebar = () => {
+    const newCollapsedState = !collapsed;
+    setCollapsed(newCollapsedState);
+    if (onToggle) {
+      onToggle(newCollapsedState);
+    }
+  };
+
   return (
     <div
       className={`fixed top-0 left-0 h-screen transition-all duration-300 ${
@@ -93,7 +102,7 @@ export function Sidebar({ className }: SidebarProps) {
           </div>
         )}
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleSidebar}
           className="rounded-full p-1 hover:bg-secondary transition-colors"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >

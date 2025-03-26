@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
@@ -232,6 +231,7 @@ export default function FolderPage() {
               variant="destructive"
               onClick={handleDeleteFolder}
               disabled={isProcessing}
+              isDelete={true}
             >
               {isProcessing ? "Deleting..." : "Delete Folder"}
             </Button>

@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { getNote } from "@/services/noteService";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchFolders } from "@/services/folderService";
 
 export default function Editor() {
   const { id } = useParams();
@@ -15,6 +16,7 @@ export default function Editor() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [note, setNote] = useState<any>(null);
+  const [folders, setFolders] = useState<any[]>([]);
 
   // Extract folderId from location state if present
   const folderId = location.state?.folderId;
@@ -40,7 +42,13 @@ export default function Editor() {
       }
     };
     
+    const loadFolders = async () => {
+      const folderData = await fetchFolders();
+      setFolders(folderData);
+    };
+    
     loadNote();
+    loadFolders();
   }, [id, navigate]);
   
   const handleSave = (noteId: string) => {
@@ -74,6 +82,11 @@ export default function Editor() {
     );
   }
 
+  // Find folder name if available
+  const currentFolderName = folders.find(folder => 
+    folder.id === (isNewNote ? folderId : note?.folderId)
+  )?.name || '';
+
   return (
     <AppLayout>
       <motion.div
@@ -88,7 +101,9 @@ export default function Editor() {
           initialContent={isNewNote ? "" : note?.content || ""}
           initialTags={isNewNote ? [] : note?.tags || []}
           initialColor={isNewNote ? "#FFFFFF" : note?.color || "#FFFFFF"}
-          initialFolderId={folderId}
+          initialFolderId={isNewNote ? folderId : note?.folderId}
+          currentFolderName={currentFolderName}
+          folders={folders}
           onSave={handleSave}
         />
       </motion.div>
