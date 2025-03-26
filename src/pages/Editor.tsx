@@ -90,7 +90,6 @@ export default function Editor() {
           initialColor={isNewNote ? "#FFFFFF" : note?.color || "#FFFFFF"}
           initialFolderId={folderId}
           onSave={handleSave}
-          autoSave={false} // Disable auto-saving
         />
       </motion.div>
     </AppLayout>

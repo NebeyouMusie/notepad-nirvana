@@ -185,8 +185,7 @@ export function Sidebar({ className }: SidebarProps) {
         </nav>
       </div>
 
-      {/* Bottom menu items moved here */}
-      <div className="border-t p-2 mt-auto">
+      <div className="border-t p-2">
         <div className="space-y-1">
           <Link
             to="/trash"
