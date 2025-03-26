@@ -6,10 +6,8 @@ import { motion } from "framer-motion";
 import { toast } from "@/hooks/use-toast";
 import { Settings as SettingsIcon, Save, Palette, Moon, Sun, Monitor } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTheme } from "@/hooks/useTheme";
-import { supabase } from "@/integrations/supabase/client";
-
-type Theme = "light" | "dark" | "system";
 
 export default function SettingsPage() {
   const [savedSettings, setSavedSettings] = useState(false);
@@ -18,107 +16,35 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   
   useEffect(() => {
-    const loadUserPreferences = async () => {
-      try {
-        setIsLoading(true);
-        
-        // First try to get saved preferences from Supabase
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          const { data: userPrefs } = await supabase
-            .from('user_preferences')
-            .select('*')
-            .eq('user_id', session.user.id)
-            .single();
-            
-          if (userPrefs) {
-            // Apply the preferences from the database
-            setPrimaryColor(userPrefs.primary_color);
-            setTheme(userPrefs.theme as Theme);
-          } else {
-            // Fallback to localStorage if no DB records found
-            const savedColor = localStorage.getItem('primaryColor');
-            if (savedColor) {
-              setPrimaryColor(savedColor);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error loading user preferences:", error);
-        // Fallback to localStorage if error occurs
-        const savedColor = localStorage.getItem('primaryColor');
-        if (savedColor) {
-          setPrimaryColor(savedColor);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadUserPreferences();
-  }, [setTheme]);
-
-  const handleSaveSettings = async () => {
-    try {
-      // Save to localStorage first for immediate effect
-      localStorage.setItem('primaryColor', primaryColor);
-      
-      // Apply the color to the document
-      document.documentElement.style.setProperty('--primary', primaryColor);
-      document.documentElement.style.setProperty('--primary-foreground', getContrastColor(primaryColor));
-      
-      // Also update the accent color to match primary
-      document.documentElement.style.setProperty('--accent', primaryColor);
-      document.documentElement.style.setProperty('--accent-foreground', getContrastColor(primaryColor));
-      
-      // Save to Supabase for persistence across devices
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const { data: existingPrefs } = await supabase
-          .from('user_preferences')
-          .select('id')
-          .eq('user_id', session.user.id)
-          .single();
-          
-        if (existingPrefs) {
-          // Update existing preferences
-          await supabase
-            .from('user_preferences')
-            .update({
-              primary_color: primaryColor,
-              theme: theme,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', session.user.id);
-        } else {
-          // Insert new preferences
-          await supabase
-            .from('user_preferences')
-            .insert({
-              user_id: session.user.id,
-              primary_color: primaryColor,
-              theme: theme
-            });
-        }
-      }
-      
-      toast({
-        title: "Settings saved",
-        description: "Your settings have been saved successfully",
-      });
-      setSavedSettings(true);
-      
-      setTimeout(() => {
-        setSavedSettings(false);
-      }, 3000);
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      toast({
-        title: "Error saving settings",
-        description: "There was a problem saving your settings",
-        variant: "destructive",
-      });
+    // Get saved primary color from localStorage
+    const savedColor = localStorage.getItem('primaryColor');
+    if (savedColor) {
+      setPrimaryColor(savedColor);
     }
+    setIsLoading(false);
+  }, []);
+
+  const handleSaveSettings = () => {
+    // Save the primary color to localStorage
+    localStorage.setItem('primaryColor', primaryColor);
+    
+    // Apply the color to the document
+    document.documentElement.style.setProperty('--primary', primaryColor);
+    document.documentElement.style.setProperty('--primary-foreground', getContrastColor(primaryColor));
+    
+    // Also update the accent color to match primary
+    document.documentElement.style.setProperty('--accent', primaryColor);
+    document.documentElement.style.setProperty('--accent-foreground', getContrastColor(primaryColor));
+    
+    toast({
+      title: "Settings saved",
+      description: "Your settings have been saved successfully",
+    });
+    setSavedSettings(true);
+    
+    setTimeout(() => {
+      setSavedSettings(false);
+    }, 3000);
   };
   
   // Helper function to determine if a color is light or dark
@@ -321,13 +247,6 @@ export default function SettingsPage() {
                         }}
                       >
                         Secondary Button
-                      </Button>
-                    </div>
-                    <div>
-                      <Button
-                        variant="destructive"
-                      >
-                        Delete Button
                       </Button>
                     </div>
                   </div>
