@@ -37,6 +37,8 @@ interface NoteEditorProps {
   noteId?: string;
   onSave?: (id: string) => void;
   initialFolderId?: string;
+  currentFolderName?: string;
+  folders?: Folder[];
 }
 
 export function NoteEditor({ 
@@ -46,7 +48,9 @@ export function NoteEditor({
   initialColor = "#FFFFFF",
   noteId,
   onSave,
-  initialFolderId
+  initialFolderId,
+  currentFolderName = "",
+  folders = []
 }: NoteEditorProps) {
   const [title, setTitle] = useState(initialTitle);
   const [color, setColor] = useState(initialColor);
@@ -55,7 +59,6 @@ export function NoteEditor({
   const [wordCount, setWordCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(initialFolderId || null);
   
   const editor = useEditor({
@@ -83,14 +86,23 @@ export function NoteEditor({
       calculateWordCount(editor.getText());
     }
     
-    // Load folders
-    const loadFolders = async () => {
-      const foldersData = await fetchFolders();
-      setFolders(foldersData);
-    };
-    
-    loadFolders();
-  }, [editor]);
+    // Load folders only if none were passed in props
+    if (folders.length === 0) {
+      const loadFolders = async () => {
+        const foldersData = await fetchFolders();
+        setFolders(foldersData);
+      };
+      
+      loadFolders();
+    }
+  }, [editor, folders]);
+
+  // Update selectedFolderId when initialFolderId changes
+  useEffect(() => {
+    if (initialFolderId) {
+      setSelectedFolderId(initialFolderId);
+    }
+  }, [initialFolderId]);
 
   const calculateWordCount = (text: string) => {
     setWordCount(text.trim() === "" ? 0 : text.trim().split(/\s+/).length);
@@ -342,8 +354,8 @@ export function NoteEditor({
             <Button variant="outline" className="w-full justify-start">
               <FolderOpen className="mr-2 h-4 w-4" />
               {selectedFolderId 
-                ? folders.find(f => f.id === selectedFolderId)?.name || 'Select Folder'
-                : 'Select Folder'}
+                ? folders.find(f => f.id === selectedFolderId)?.name || currentFolderName || 'Select Folder'
+                : currentFolderName || 'Select Folder'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56">
