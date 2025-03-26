@@ -33,6 +33,14 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
     }
   };
 
+  // Extract plain text from HTML
+  const getTextFromHtml = (html: string | null) => {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+
   const searchNotes = async (searchQuery: string) => {
     if (searchQuery.trim().length === 0) return;
     
@@ -117,7 +125,7 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
                 </div>
                 {note.content && (
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-1 pl-5">
-                    {note.content}
+                    {getTextFromHtml(note.content)}
                   </p>
                 )}
                 {note.tags && note.tags.length > 0 && (

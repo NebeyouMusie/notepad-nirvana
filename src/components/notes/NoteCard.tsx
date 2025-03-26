@@ -31,9 +31,16 @@ export function NoteCard({ note, onUpdate }: NoteCardProps) {
     day: 'numeric',
   });
   
-  const excerpt = note.content && note.content.length > 100 
-    ? `${note.content.substring(0, 100)}...` 
-    : note.content;
+  // Extract plain text from HTML for excerpt
+  const getTextFromHtml = (html: string) => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || '';
+  };
+  
+  const excerpt = note.content 
+    ? getTextFromHtml(note.content).substring(0, 100) + (getTextFromHtml(note.content).length > 100 ? '...' : '')
+    : '';
   
   const handleToggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
