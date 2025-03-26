@@ -1,5 +1,5 @@
 
-import { Search as SearchIcon, X } from "lucide-react";
+import { Search as SearchIcon, X, Tag } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
@@ -10,9 +10,17 @@ interface SearchProps {
   placeholder?: string;
 }
 
+interface SearchResult {
+  id: string;
+  title: string;
+  content: string | null;
+  color: string;
+  tags: string[];
+}
+
 export function Search({ onSearch, placeholder = "Search notes..." }: SearchProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -39,17 +47,40 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
     setIsSearching(true);
     
     try {
-      // Search in title and content, only non-trashed notes
+      // Search in title, content, and tags
       const { data, error } = await supabase
         .from('notes')
-        .select('id, title, content, color')
+        .select('id, title, content, color, tags')
         .eq('is_trashed', false)
         .or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`)
-        .limit(5);
+        .limit(10);
       
       if (error) throw error;
       
-      setResults(data || []);
+      // Also search for tags
+      const { data: tagResults, error: tagError } = await supabase
+        .from('notes')
+        .select('id, title, content, color, tags')
+        .eq('is_trashed', false)
+        .filter('tags', 'cs', `{${searchQuery}}`)
+        .limit(10);
+        
+      if (tagError) throw tagError;
+      
+      // Combine and deduplicate results
+      const combinedResults = [...(data || [])];
+      
+      if (tagResults) {
+        // Only add tag results if they're not already in the results
+        tagResults.forEach(tagResult => {
+          const exists = combinedResults.some(item => item.id === tagResult.id);
+          if (!exists) {
+            combinedResults.push(tagResult);
+          }
+        });
+      }
+      
+      setResults(combinedResults);
     } catch (error) {
       console.error('Error searching notes:', error);
       setResults([]);
@@ -119,6 +150,19 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-1 pl-5">
                     {note.content}
                   </p>
+                )}
+                {note.tags && note.tags.length > 0 && (
+                  <div className="flex items-center mt-1 pl-5 gap-1 flex-wrap">
+                    <Tag size={12} className="text-muted-foreground" />
+                    {note.tags.map((tag, idx) => (
+                      <span 
+                        key={idx} 
+                        className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </Link>
             ))}
