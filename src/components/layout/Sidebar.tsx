@@ -13,7 +13,7 @@ import {
   Settings,
   LogOut
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { fetchFolders, Folder } from "@/services/folderService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createFolder } from "@/services/folderService";
 import { toast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface SidebarProps {
   className?: string;
@@ -36,7 +37,9 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
   const [isLoading, setIsLoading] = useState(false);
   
   const location = useLocation();
+  const navigate = useNavigate();
   const { signOut } = useAuth();
+  const isMobile = useIsMobile();
   
   const isActive = (path: string) => location.pathname === path;
   const isFolderActive = (id: string) => location.pathname === `/folders/${id}`;
@@ -88,6 +91,17 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
     }
   };
 
+  // Handle navigation on mobile devices
+  const handleNavigation = (path: string) => {
+    if (isMobile && collapsed) {
+      // If on mobile and sidebar is collapsed, just navigate without opening sidebar
+      navigate(path);
+    } else {
+      // Normal navigation
+      navigate(path);
+    }
+  };
+
   return (
     <div
       className={`fixed top-0 left-0 h-screen transition-all duration-300 ${
@@ -112,27 +126,27 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
 
       <div className="flex-1 overflow-y-auto">
         <nav className="p-2 space-y-1">
-          <Link
-            to="/"
-            className={`sidebar-item ${isActive("/") ? "active" : ""}`}
+          <button
+            onClick={() => handleNavigation("/")}
+            className={`sidebar-item w-full text-left ${isActive("/") ? "active" : ""}`}
           >
             <BookOpen size={18} />
             {!collapsed && <span>All Notes</span>}
-          </Link>
-          <Link
-            to="/favorites"
-            className={`sidebar-item ${isActive("/favorites") ? "active" : ""}`}
+          </button>
+          <button
+            onClick={() => handleNavigation("/favorites")}
+            className={`sidebar-item w-full text-left ${isActive("/favorites") ? "active" : ""}`}
           >
             <Star size={18} />
             {!collapsed && <span>Favorites</span>}
-          </Link>
-          <Link
-            to="/archived"
-            className={`sidebar-item ${isActive("/archived") ? "active" : ""}`}
+          </button>
+          <button
+            onClick={() => handleNavigation("/archived")}
+            className={`sidebar-item w-full text-left ${isActive("/archived") ? "active" : ""}`}
           >
             <Archive size={18} />
             {!collapsed && <span>Archived</span>}
-          </Link>
+          </button>
           
           {!collapsed && (
             <div className="py-2">
@@ -179,14 +193,14 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
               </div>
               <div className="space-y-1">
                 {folders.map((folder) => (
-                  <Link
+                  <button
                     key={folder.id}
-                    to={`/folders/${folder.id}`}
-                    className={`sidebar-item ${isFolderActive(folder.id) ? "active" : ""}`}
+                    onClick={() => handleNavigation(`/folders/${folder.id}`)}
+                    className={`sidebar-item w-full text-left ${isFolderActive(folder.id) ? "active" : ""}`}
                   >
                     <FolderOpen size={18} />
                     <span>{folder.name}</span>
-                  </Link>
+                  </button>
                 ))}
               </div>
             </div>
@@ -196,27 +210,27 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
 
       <div className="mt-auto border-t p-2">
         <div className="space-y-1">
-          <Link
-            to="/trash"
-            className={`sidebar-item ${isActive("/trash") ? "active" : ""}`}
+          <button
+            onClick={() => handleNavigation("/trash")}
+            className={`sidebar-item w-full text-left ${isActive("/trash") ? "active" : ""}`}
           >
             <Trash size={18} />
             {!collapsed && <span>Trash</span>}
-          </Link>
-          <Link
-            to="/settings"
-            className={`sidebar-item ${isActive("/settings") ? "active" : ""}`}
+          </button>
+          <button
+            onClick={() => handleNavigation("/settings")}
+            className={`sidebar-item w-full text-left ${isActive("/settings") ? "active" : ""}`}
           >
             <Settings size={18} />
             {!collapsed && <span>Settings</span>}
-          </Link>
-          <Link
-            to="/account"
-            className={`sidebar-item ${isActive("/account") ? "active" : ""}`}
+          </button>
+          <button
+            onClick={() => handleNavigation("/account")}
+            className={`sidebar-item w-full text-left ${isActive("/account") ? "active" : ""}`}
           >
             <User size={18} />
             {!collapsed && <span>Account</span>}
-          </Link>
+          </button>
           <button
             onClick={() => signOut()}
             className="sidebar-item w-full text-left"

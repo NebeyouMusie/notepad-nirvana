@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { createNote, updateNote, NoteInput } from "@/services/noteService";
 import { toast } from "@/hooks/use-toast";
-import { addNoteToFolder, fetchFolders, Folder } from "@/services/folderService";
+import { addNoteToFolder, fetchFolders, Folder, getNotesFolders } from "@/services/folderService";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
@@ -60,6 +60,8 @@ export function NoteEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(initialFolderId || null);
+  const [foldersList, setFoldersList] = useState<Folder[]>(folders);
+  const [isAlreadyInFolder, setIsAlreadyInFolder] = useState<boolean>(false);
   
   const editor = useEditor({
     extensions: [
@@ -90,12 +92,27 @@ export function NoteEditor({
     if (folders.length === 0) {
       const loadFolders = async () => {
         const foldersData = await fetchFolders();
-        setFolders(foldersData);
+        setFoldersList(foldersData);
       };
       
       loadFolders();
+    } else {
+      setFoldersList(folders);
     }
-  }, [editor, folders]);
+
+    // Check if the note is already in the selected folder
+    const checkFolderAssociation = async () => {
+      if (noteId && selectedFolderId) {
+        const noteFolders = await getNotesFolders(noteId);
+        const isInFolder = noteFolders.some(folder => folder.id === selectedFolderId);
+        setIsAlreadyInFolder(isInFolder);
+      }
+    };
+
+    if (noteId && selectedFolderId) {
+      checkFolderAssociation();
+    }
+  }, [editor, folders, noteId, selectedFolderId]);
 
   // Update selectedFolderId when initialFolderId changes
   useEffect(() => {
@@ -138,14 +155,20 @@ export function NoteEditor({
       } else {
         // Create new note
         savedNote = await createNote(noteData);
-        
-        // If there's a selected folder, add the note to it
-        if (savedNote && selectedFolderId) {
-          await addNoteToFolder(savedNote.id, selectedFolderId);
-        }
       }
       
       if (savedNote) {
+        // If there's a selected folder and the note is not already in that folder, add it
+        if (selectedFolderId && !isAlreadyInFolder) {
+          try {
+            await addNoteToFolder(savedNote.id, selectedFolderId);
+            // Update isAlreadyInFolder after successfully adding note to folder
+            setIsAlreadyInFolder(true);
+          } catch (error) {
+            // Error is handled in addNoteToFolder function
+          }
+        }
+        
         setLastSaved(new Date());
         toast({
           title: noteId ? "Note updated" : "Note created",
@@ -173,18 +196,20 @@ export function NoteEditor({
   };
 
   const selectFolder = async (folderId: string) => {
-    setSelectedFolderId(folderId);
-    
-    // If the note already exists and folder is selected, add the note to the folder
+    // Check if note is already in this folder
     if (noteId) {
-      const success = await addNoteToFolder(noteId, folderId);
-      if (success) {
-        toast({
-          title: "Note added to folder",
-          description: `Note added to ${folders.find(f => f.id === folderId)?.name || 'folder'}`,
-        });
+      const noteFolders = await getNotesFolders(noteId);
+      const isInFolder = noteFolders.some(folder => folder.id === folderId);
+      
+      if (isInFolder) {
+        setIsAlreadyInFolder(true);
+        setSelectedFolderId(folderId);
+        return;
       }
     }
+    
+    setIsAlreadyInFolder(false);
+    setSelectedFolderId(folderId);
   };
 
   // Color options
@@ -354,13 +379,13 @@ export function NoteEditor({
             <Button variant="outline" className="w-full justify-start">
               <FolderOpen className="mr-2 h-4 w-4" />
               {selectedFolderId 
-                ? folders.find(f => f.id === selectedFolderId)?.name || currentFolderName || 'Select Folder'
+                ? foldersList.find(f => f.id === selectedFolderId)?.name || currentFolderName || 'Select Folder'
                 : currentFolderName || 'Select Folder'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56">
-            {folders.length > 0 ? (
-              folders.map((folder) => (
+            {foldersList.length > 0 ? (
+              foldersList.map((folder) => (
                 <DropdownMenuItem 
                   key={folder.id}
                   onClick={() => selectFolder(folder.id)}
@@ -374,6 +399,11 @@ export function NoteEditor({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        {isAlreadyInFolder && selectedFolderId && (
+          <div className="mt-2 text-xs text-muted-foreground">
+            This note is already in this folder
+          </div>
+        )}
       </div>
       
       <div className="flex-1 relative note-content-editor">

@@ -156,11 +156,32 @@ export async function addNoteToFolder(noteId: string, folderId: string) {
       return false;
     }
     
+    // First check if the note is already in this folder
+    const { data: existingEntry, error: checkError } = await supabase
+      .from('notes_folders')
+      .select('*')
+      .eq('note_id', noteId)
+      .eq('folder_id', folderId);
+      
+    if (checkError) throw checkError;
+    
+    // If the note is already in the folder, return true without trying to insert
+    if (existingEntry && existingEntry.length > 0) {
+      return true;
+    }
+    
+    // If not already in the folder, insert it
     const { error } = await supabase
       .from('notes_folders')
       .insert([{ note_id: noteId, folder_id: folderId }]);
     
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505') { // PostgreSQL duplicate key error code
+        // This is fine, the note is already in the folder
+        return true;
+      }
+      throw error;
+    }
     
     return true;
   } catch (error: any) {
@@ -241,11 +262,7 @@ export async function getNotesFolders(noteId: string) {
     
     return [];
   } catch (error: any) {
-    toast({
-      title: "Error fetching note's folders",
-      description: error.message,
-      variant: "destructive",
-    });
+    console.error("Error fetching note's folders:", error.message);
     return [];
   }
 }
