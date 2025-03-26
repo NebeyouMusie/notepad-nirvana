@@ -39,12 +39,12 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
     setIsSearching(true);
     
     try {
-      // Search in title and content, only non-trashed notes
+      // Search in title, content, and tags, only non-trashed notes
       const { data, error } = await supabase
         .from('notes')
-        .select('id, title, content, color')
+        .select('id, title, content, color, tags')
         .eq('is_trashed', false)
-        .or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%`)
+        .or(`title.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,tags.cs.{${searchQuery}}`)
         .limit(5);
       
       if (error) throw error;
@@ -119,6 +119,15 @@ export function Search({ onSearch, placeholder = "Search notes..." }: SearchProp
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-1 pl-5">
                     {note.content}
                   </p>
+                )}
+                {note.tags && note.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1 pl-5">
+                    {note.tags.map((tag: string, index: number) => (
+                      <span key={index} className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </Link>
             ))}

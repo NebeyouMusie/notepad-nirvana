@@ -30,20 +30,63 @@ export function AppLayout({ children }: AppLayoutProps) {
           return brightness > 128;
         };
         
-        // Apply the primary color
-        document.documentElement.style.setProperty('--primary', savedColor);
+        // Convert hex to hsl for CSS variables
+        const hexToHSL = (hex: string) => {
+          // Remove the # if present
+          hex = hex.replace('#', '');
+          
+          // Convert hex to rgb
+          let r = parseInt(hex.substring(0, 2), 16) / 255;
+          let g = parseInt(hex.substring(2, 4), 16) / 255;
+          let b = parseInt(hex.substring(4, 6), 16) / 255;
+          
+          // Find the maximum and minimum values to calculate saturation
+          let max = Math.max(r, g, b);
+          let min = Math.min(r, g, b);
+          
+          // Calculate HSL values
+          let h = 0; // Default hue
+          let s = 0; // Default saturation
+          let l = (max + min) / 2; // Lightness
+          
+          if (max !== min) {
+            // Calculate saturation
+            s = l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min);
+            
+            // Calculate hue
+            if (max === r) {
+              h = (g - b) / (max - min) + (g < b ? 6 : 0);
+            } else if (max === g) {
+              h = (b - r) / (max - min) + 2;
+            } else if (max === b) {
+              h = (r - g) / (max - min) + 4;
+            }
+            h /= 6;
+          }
+          
+          // Convert H to degrees, S and L to percentages
+          h = Math.round(h * 360);
+          s = Math.round(s * 100);
+          l = Math.round(l * 100);
+          
+          return `${h} ${s}% ${l}%`;
+        };
+        
+        // Apply the primary color as HSL values
+        const hslColor = hexToHSL(savedColor);
+        document.documentElement.style.setProperty('--primary', hslColor);
         
         // Set the foreground color based on the primary color's lightness
         document.documentElement.style.setProperty(
           '--primary-foreground', 
-          isLightColor(savedColor) ? '#000000' : '#ffffff'
+          isLightColor(savedColor) ? '222 47% 11%' : '210 40% 98%'
         );
         
         // Also update the accent color to match primary for consistency
-        document.documentElement.style.setProperty('--accent', savedColor);
+        document.documentElement.style.setProperty('--accent', hslColor);
         document.documentElement.style.setProperty(
           '--accent-foreground', 
-          isLightColor(savedColor) ? '#000000' : '#ffffff'
+          isLightColor(savedColor) ? '222 47% 11%' : '210 40% 98%'
         );
       }
     };
