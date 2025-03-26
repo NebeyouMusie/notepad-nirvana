@@ -81,9 +81,9 @@ export function Sidebar({ className }: SidebarProps) {
 
   return (
     <div
-      className={`transition-all duration-300 ${
+      className={`fixed top-0 left-0 h-screen transition-all duration-300 ${
         collapsed ? "w-16" : "w-64"
-      } border-r h-full flex flex-col ${className}`}
+      } border-r flex flex-col ${className}`}
     >
       <div className="flex items-center justify-between p-4">
         {!collapsed && (
@@ -185,7 +185,7 @@ export function Sidebar({ className }: SidebarProps) {
         </nav>
       </div>
 
-      <div className="border-t p-2">
+      <div className="mt-auto border-t p-2">
         <div className="space-y-1">
           <Link
             to="/trash"

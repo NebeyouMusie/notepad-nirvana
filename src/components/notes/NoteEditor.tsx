@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Bold, 
@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { createNote, updateNote, NoteInput } from "@/services/noteService";
 import { toast } from "@/hooks/use-toast";
 import { addNoteToFolder, fetchFolders, Folder } from "@/services/folderService";
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import {
