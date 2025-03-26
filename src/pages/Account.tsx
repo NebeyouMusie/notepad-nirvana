@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
-import { User, Save, LogOut, AlertTriangle } from "lucide-react";
+import { User, LogOut, AlertTriangle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
   AlertDialog,
@@ -23,25 +23,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 export default function Account() {
   const { user, signOut } = useAuth();
-  const [fullName, setFullName] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  const handleUpdateProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSaving(false);
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully",
-      });
-    }, 1000);
-  };
 
   const handleDeleteAccount = async () => {
     if (confirmText !== user?.email) return;
@@ -100,7 +84,7 @@ export default function Account() {
           <div className="bg-card border rounded-lg p-6">
             <h2 className="text-xl font-medium mb-4">Profile Information</h2>
             
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -113,24 +97,7 @@ export default function Account() {
                   Your email cannot be changed
                 </p>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="John Doe"
-                />
-              </div>
-              
-              <div className="flex justify-end">
-                <Button type="submit" disabled={isSaving}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-            </form>
+            </div>
           </div>
           
           <div className="bg-card border rounded-lg p-6">

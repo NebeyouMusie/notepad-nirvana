@@ -128,7 +128,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <Link to="/new">
                 <Button className="gap-1">
                   <Plus size={18} />
-                  <span>New Note</span>
+                  <span className="md:inline hidden">New Note</span>
                 </Button>
               </Link>
             </div>
