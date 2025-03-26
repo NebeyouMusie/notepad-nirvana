@@ -28,8 +28,7 @@ export function NoteGrid({ notes, onUpdate }: NoteGridProps) {
       {notes.map((note) => (
         <NoteCard 
           key={note.id} 
-          note={note} 
-          onUpdate={onUpdate} 
+          note={note}
         />
       ))}
     </div>
