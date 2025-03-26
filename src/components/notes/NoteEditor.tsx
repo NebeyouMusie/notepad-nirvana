@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Bold, 
@@ -24,6 +25,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import TextAlign from '@tiptap/extension-text-align';
 
 interface NoteEditorProps {
   initialContent?: string;
@@ -54,8 +58,36 @@ export function NoteEditor({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(initialFolderId || null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2],
+        },
+      }),
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right'],
+      }),
+    ],
+    content: initialContent,
+    onUpdate: ({ editor }) => {
+      const newContent = editor.getHTML();
+      setContent(newContent);
+      calculateWordCount(newContent);
+    },
+  });
   
-  // Removed auto-save timer state and isFirstRender state
+  useEffect(() => {
+    if (editor && initialContent) {
+      // If the editor exists but its content doesn't match initialContent
+      // (happens when navigating between notes)
+      if (editor.getHTML() !== initialContent) {
+        editor.commands.setContent(initialContent);
+      }
+    }
+  }, [editor, initialContent]);
 
   useEffect(() => {
     calculateWordCount(content);
@@ -69,16 +101,10 @@ export function NoteEditor({
     loadFolders();
   }, []);
 
-  // Removed the auto-save effect that was previously here
-
   const calculateWordCount = (text: string) => {
-    setWordCount(text.trim() === "" ? 0 : text.trim().split(/\s+/).length);
-  };
-
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
-    setContent(newContent);
-    calculateWordCount(newContent);
+    // For HTML content, we need to strip tags to count words accurately
+    const strippedText = text.replace(/<[^>]*>/g, ' ').trim();
+    setWordCount(strippedText === "" ? 0 : strippedText.split(/\s+/).filter(Boolean).length);
   };
 
   const handleSave = async () => {
@@ -158,6 +184,71 @@ export function NoteEditor({
     }
   };
 
+  // Toolbar button handling
+  const handleBold = () => {
+    editor?.chain().focus().toggleBold().run();
+  };
+
+  const handleItalic = () => {
+    editor?.chain().focus().toggleItalic().run();
+  };
+
+  const handleBulletList = () => {
+    editor?.chain().focus().toggleBulletList().run();
+  };
+
+  const handleOrderedList = () => {
+    editor?.chain().focus().toggleOrderedList().run();
+  };
+
+  const handleHeading1 = () => {
+    editor?.chain().focus().toggleHeading({ level: 1 }).run();
+  };
+
+  const handleHeading2 = () => {
+    editor?.chain().focus().toggleHeading({ level: 2 }).run();
+  };
+
+  const handleAlignLeft = () => {
+    editor?.chain().focus().setTextAlign('left').run();
+  };
+
+  const handleAlignCenter = () => {
+    editor?.chain().focus().setTextAlign('center').run();
+  };
+
+  const handleAlignRight = () => {
+    editor?.chain().focus().setTextAlign('right').run();
+  };
+
+  // Check if button is active
+  const isActive = (type: string, options: any = {}) => {
+    if (!editor) return false;
+    
+    switch(type) {
+      case 'bold':
+        return editor.isActive('bold');
+      case 'italic':
+        return editor.isActive('italic');
+      case 'bulletList':
+        return editor.isActive('bulletList');
+      case 'orderedList':
+        return editor.isActive('orderedList');
+      case 'heading1':
+        return editor.isActive('heading', { level: 1 });
+      case 'heading2':
+        return editor.isActive('heading', { level: 2 });
+      case 'alignLeft':
+        return editor.isActive({ textAlign: 'left' });
+      case 'alignCenter':
+        return editor.isActive({ textAlign: 'center' });
+      case 'alignRight':
+        return editor.isActive({ textAlign: 'right' });
+      default:
+        return false;
+    }
+  };
+
   // Color options
   const colorOptions = [
     "#FFFFFF", // White
@@ -182,32 +273,77 @@ export function NoteEditor({
       </div>
       
       <div className="glassmorphism rounded-lg p-1 mb-4 flex flex-wrap gap-1">
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('bold') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleBold}
+        >
           <Bold size={16} />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('italic') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleItalic}
+        >
           <Italic size={16} />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('bulletList') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleBulletList}
+        >
           <List size={16} />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('orderedList') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleOrderedList}
+        >
           <ListOrdered size={16} />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('heading1') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleHeading1}
+        >
           <Heading1 size={16} />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('heading2') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleHeading2}
+        >
           <Heading2 size={16} />
         </Button>
         <div className="flex-1"></div>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('alignLeft') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleAlignLeft}
+        >
           <AlignLeft size={16} />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('alignCenter') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleAlignCenter}
+        >
           <AlignCenter size={16} />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
+        <Button 
+          variant={isActive('alignRight') ? "secondary" : "ghost"} 
+          size="icon" 
+          className="h-8 w-8"
+          onClick={handleAlignRight}
+        >
           <AlignRight size={16} />
         </Button>
       </div>
@@ -293,13 +429,8 @@ export function NoteEditor({
         </DropdownMenu>
       </div>
       
-      <div className="flex-1 relative">
-        <textarea
-          value={content}
-          onChange={handleContentChange}
-          className="w-full h-full resize-none bg-transparent border-none outline-none focus:ring-0 p-0"
-          placeholder="Start writing..."
-        />
+      <div className="flex-1 relative editor-container p-2 glassmorphism rounded-lg">
+        <EditorContent editor={editor} className="w-full h-full" />
       </div>
       
       <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground">

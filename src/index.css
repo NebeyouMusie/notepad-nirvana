@@ -124,4 +124,49 @@
   .sidebar-item.active {
     @apply text-foreground bg-secondary/80 dark:bg-secondary/30;
   }
+  
+  /* Editor styles */
+  .editor-container {
+    @apply overflow-y-auto;
+  }
+  
+  .editor-container .ProseMirror {
+    @apply outline-none min-h-full p-2;
+  }
+  
+  .editor-container .ProseMirror h1 {
+    @apply text-2xl font-bold mb-4;
+  }
+  
+  .editor-container .ProseMirror h2 {
+    @apply text-xl font-semibold mb-3;
+  }
+  
+  .editor-container .ProseMirror p {
+    @apply mb-2;
+  }
+  
+  .editor-container .ProseMirror ul {
+    @apply list-disc pl-6 mb-4;
+  }
+  
+  .editor-container .ProseMirror ol {
+    @apply list-decimal pl-6 mb-4;
+  }
+  
+  .editor-container .ProseMirror strong {
+    @apply font-bold;
+  }
+  
+  .editor-container .ProseMirror em {
+    @apply italic;
+  }
+  
+  .editor-container .ProseMirror p[style*="text-align: center"] {
+    @apply text-center;
+  }
+  
+  .editor-container .ProseMirror p[style*="text-align: right"] {
+    @apply text-right;
+  }
 }
