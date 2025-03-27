@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
 import { fetchNotes, Note } from "@/services/noteService";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, Star } from "lucide-react";
 
 export default function Favorites() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -41,6 +41,12 @@ export default function Favorites() {
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : notes.length === 0 ? (
+          <div className="text-center py-12">
+            <Star className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">No favorites yet</h3>
+            <p className="text-muted-foreground">Star notes to add them to your favorites</p>
           </div>
         ) : (
           <NoteGrid notes={notes} onUpdate={loadNotes} />

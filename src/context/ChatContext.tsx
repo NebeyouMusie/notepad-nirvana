@@ -84,7 +84,7 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         setMessages([
           {
             id: Date.now().toString(),
-            content: "Hello! I'm your personal note-taking assistant. How can I help you today?",
+            content: "Hi there! 👋 I'm your AI assistant. Ask me anything, and I'll do my best to help!",
             role: 'ai',
             timestamp: new Date(),
           },

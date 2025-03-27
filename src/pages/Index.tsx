@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
 import { fetchNotes, Note } from "@/services/noteService";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Index() {
@@ -44,6 +44,12 @@ export default function Index() {
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Skeleton key={i} className="h-64 w-full" />
             ))}
+          </div>
+        ) : notes.length === 0 ? (
+          <div className="text-center py-12">
+            <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">No notes found</h3>
+            <p className="text-muted-foreground">Create your first note to get started</p>
           </div>
         ) : (
           <NoteGrid notes={notes} onUpdate={loadNotes} />

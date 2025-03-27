@@ -113,7 +113,7 @@ export function AIAssistant() {
       >
         <ExpandableChatHeader className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold">Note Assistant</h2>
+            <h2 className="text-lg font-semibold">Chat with AI ✨</h2>
             <p className="text-xs text-muted-foreground">
               Powered by Google Gemini
             </p>
@@ -209,7 +209,7 @@ export function AIAssistant() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 apiKeySet
-                  ? "Ask about your notes..."
+                  ? "Type your message..."
                   : "Please set your API key first"
               }
               disabled={!apiKeySet || isLoading}

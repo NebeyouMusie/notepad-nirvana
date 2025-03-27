@@ -4,7 +4,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
 import { fetchNotes, Note } from "@/services/noteService";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, Archive } from "lucide-react";
 
 export default function Archived() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -41,6 +41,12 @@ export default function Archived() {
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : notes.length === 0 ? (
+          <div className="text-center py-12">
+            <Archive className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">No archived notes</h3>
+            <p className="text-muted-foreground">Archive notes you want to keep but don't need right now</p>
           </div>
         ) : (
           <NoteGrid notes={notes} onUpdate={loadNotes} />
