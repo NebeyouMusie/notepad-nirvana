@@ -8,6 +8,8 @@ import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { ChatProvider } from "@/context/ChatContext";
+import { AIAssistant } from "@/components/AIAssistant";
 
 // Pages
 import Index from "./pages/Index";
@@ -57,29 +59,34 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="system" storageKey="theme">
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AnimatePresence mode="wait">
-            <Routes>
-              <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
-              
-              {/* Protected routes */}
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/new" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
-              <Route path="/notes/:id" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
-              <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
-              <Route path="/archived" element={<ProtectedRoute><Archived /></ProtectedRoute>} />
-              <Route path="/trash" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/folders/:id" element={<ProtectedRoute><Folder /></ProtectedRoute>} />
-              <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-              
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AnimatePresence>
-        </TooltipProvider>
+        <ChatProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <AnimatePresence mode="wait">
+              <Routes>
+                <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
+                
+                {/* Protected routes */}
+                <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                <Route path="/new" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
+                <Route path="/notes/:id" element={<ProtectedRoute><Editor /></ProtectedRoute>} />
+                <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
+                <Route path="/archived" element={<ProtectedRoute><Archived /></ProtectedRoute>} />
+                <Route path="/trash" element={<ProtectedRoute><Trash /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                <Route path="/folders/:id" element={<ProtectedRoute><Folder /></ProtectedRoute>} />
+                <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+                
+                {/* Catch-all route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AnimatePresence>
+            
+            {/* The AI Assistant chat is placed outside of the routes so it's available everywhere */}
+            <AIAssistant />
+          </TooltipProvider>
+        </ChatProvider>
       </AuthProvider>
     </ThemeProvider>
   </QueryClientProvider>
