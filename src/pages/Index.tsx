@@ -4,9 +4,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
 import { fetchNotes, Note } from "@/services/noteService";
 import { motion } from "framer-motion";
-import { Loader2, FileText } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
 
 export default function Index() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -46,16 +45,8 @@ export default function Index() {
               <Skeleton key={i} className="h-64 w-full" />
             ))}
           </div>
-        ) : notes.length > 0 ? (
-          <NoteGrid notes={notes} onUpdate={loadNotes} />
         ) : (
-          <EmptyState
-            icon={FileText}
-            title="No notes yet"
-            description="Create your first note to get started"
-            actionLabel="Create a note"
-            actionLink="/new"
-          />
+          <NoteGrid notes={notes} onUpdate={loadNotes} />
         )}
       </div>
     </AppLayout>
