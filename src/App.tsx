@@ -61,8 +61,10 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
 const ChatAssistantWrapper = () => {
   const location = useLocation();
   const isAuthPage = location.pathname === '/auth';
+  const { user } = useAuth();
   
-  if (isAuthPage) {
+  // Only show the assistant if user is logged in and not on auth page
+  if (isAuthPage || !user) {
     return null;
   }
   

@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { fetchNotes, Note } from '@/services/noteService';
 
 // Define the types for our messages
 export type MessageRole = 'user' | 'ai';
@@ -44,6 +45,27 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   const [genAI, setGenAI] = useState<any>(null);
   const [apiKeySet, setApiKeySet] = useState(false);
   const [chatSession, setChatSession] = useState<any>(null);
+  const [userNotes, setUserNotes] = useState<Note[]>([]);
+
+  // Fetch user notes
+  useEffect(() => {
+    const loadNotes = async () => {
+      try {
+        // Fetch all notes including archived and trashed
+        const allNotes = await fetchNotes({ includeAll: true });
+        setUserNotes(allNotes);
+      } catch (error) {
+        console.error('Error fetching notes:', error);
+      }
+    };
+
+    // Only load notes if user is authenticated (will return empty array if not)
+    loadNotes();
+
+    // Refresh notes every 5 minutes
+    const intervalId = setInterval(loadNotes, 5 * 60 * 1000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Check if API key exists in localStorage
   useEffect(() => {
@@ -58,6 +80,24 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       }
     }
   }, []);
+
+  // Generate context about user's notes
+  const generateNotesContext = () => {
+    if (userNotes.length === 0) {
+      return "You don't have any notes yet.";
+    }
+
+    const notesSummary = userNotes.map(note => {
+      let status = "";
+      if (note.is_archived) status = " (archived)";
+      if (note.is_trashed) status = " (in trash)";
+      if (note.is_favorite) status += " (favorite)";
+      
+      return `- "${note.title}"${status}: ${note.content?.substring(0, 100)}${note.content && note.content.length > 100 ? '...' : ''}`;
+    }).join('\n');
+
+    return `Here are your notes:\n${notesSummary}`;
+  };
 
   // Initialize Gemini API
   const initializeGemini = (apiKey: string) => {
@@ -74,9 +114,30 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
       });
       
       setGenAI(ai);
+      
+      // Create system prompt with notes information
+      const notesContext = generateNotesContext();
+      const systemPrompt = `You are a helpful note-taking assistant. You have access to the user's notes and can help them find information, summarize notes, and answer questions about their content.
+
+${notesContext}
+
+When the user asks about their notes, you should reference the above information to help them. If they ask a question that's not about their notes, you can answer generally as a helpful assistant.`;
+      
+      // Initialize session with notes context
       const session = model.startChat({
-        history: [],
+        history: [
+          {
+            role: "user",
+            parts: [{ text: "Please be my note-taking assistant." }],
+          },
+          {
+            role: "model",
+            parts: [{ text: "I'd be happy to be your note-taking assistant! I can help you manage and organize your notes, find specific information, and answer questions about your content. What would you like help with today?" }],
+          },
+        ],
+        systemInstruction: systemPrompt,
       });
+      
       setChatSession(session);
       
       // Add initial welcome message
@@ -135,8 +196,26 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
     setIsLoading(true);
 
     try {
-      const result = await chatSession.sendMessage(content);
-      const aiResponse = result.response.text();
+      // Before sending, regenerate the notes context in case it's changed
+      if (userNotes.length > 0) {
+        const notesContext = generateNotesContext();
+        
+        // Update the system instruction with fresh notes data
+        await chatSession.sendMessage(`I'm going to update you with the current state of the user's notes. Use this information when the user asks about their notes:
+
+${notesContext}
+
+Please respond with "I've updated my knowledge of your notes." and nothing else.`);
+        
+        // Skip adding this response to the chat UI
+        await chatSession.sendMessage(content);
+      } else {
+        // Just send the user's message if there are no notes
+        await chatSession.sendMessage(content);
+      }
+      
+      const result = await chatSession.getLastResponse();
+      const aiResponse = result.text();
       
       // Add AI response to chat
       const aiMessage: ChatMessage = {
