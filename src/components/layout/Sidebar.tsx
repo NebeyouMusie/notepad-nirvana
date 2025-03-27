@@ -23,6 +23,8 @@ import { Label } from "@/components/ui/label";
 import { createFolder } from "@/services/folderService";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { UpgradeMenu } from "@/components/upgrade/UpgradeMenu";
+import { usePlan } from "@/hooks/usePlan";
 
 interface SidebarProps {
   className?: string;
@@ -40,6 +42,7 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const isMobile = useIsMobile();
+  const { checkLimits } = usePlan();
   
   const isActive = (path: string) => location.pathname === path;
   const isFolderActive = (id: string) => location.pathname === `/folders/${id}`;
@@ -62,6 +65,13 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
         description: "Folder name cannot be empty",
         variant: "destructive",
       });
+      return;
+    }
+    
+    // Check if user can create more folders
+    const canProceed = await checkLimits();
+    if (!canProceed) {
+      setIsDialogOpen(false);
       return;
     }
     
@@ -208,6 +218,8 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
         </nav>
       </div>
 
+      {!collapsed && <UpgradeMenu />}
+
       <div className="mt-auto border-t p-2">
         <div className="space-y-1">
           <button
@@ -216,6 +228,13 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
           >
             <Trash size={18} />
             {!collapsed && <span>Trash</span>}
+          </button>
+          <button
+            onClick={() => handleNavigation("/upgrade")}
+            className={`sidebar-item w-full text-left ${isActive("/upgrade") ? "active" : ""}`}
+          >
+            <Star size={18} />
+            {!collapsed && <span>Upgrade</span>}
           </button>
           <button
             onClick={() => handleNavigation("/settings")}

@@ -1,360 +1,208 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 export interface Note {
   id: string;
+  created_at: string;
   title: string;
-  content: string | null;
-  color: string;
-  tags: string[];
+  content: string;
+  user_id: string;
   is_favorite: boolean;
   is_archived: boolean;
   is_trashed: boolean;
-  trashed_at: string | null;
-  created_at: string;
-  updated_at: string;
-  user_id: string;
 }
 
-export type NoteInput = Omit<Note, 'id' | 'created_at' | 'updated_at' | 'user_id'>;
-
-// Fetch all notes for the current user
-export async function fetchNotes(options: { 
+interface FetchNotesOptions {
+  favorite?: boolean;
   archived?: boolean;
   trashed?: boolean;
-  favorite?: boolean;
   folderId?: string;
-} = {}) {
+}
+
+export const fetchNotes = async (options: FetchNotesOptions = {}): Promise<Note[]> => {
   try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to view notes",
-        variant: "destructive",
-      });
-      return [];
-    }
-    
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) throw userError;
+
     let query = supabase
-      .from('notes')
-      .select('*')
-      .eq('is_archived', options.archived ?? false)
-      .eq('is_trashed', options.trashed ?? false);
-    
+      .from("notes")
+      .select("*")
+      .eq("user_id", userData.user.id)
+      .order("created_at", { ascending: false });
+
     if (options.favorite) {
-      query = query.eq('is_favorite', true);
+      query = query.eq("is_favorite", true);
+    }
+
+    if (options.archived) {
+      query = query.eq("is_archived", true);
+    }
+
+    if (options.trashed) {
+      query = query.eq("is_trashed", true);
     }
     
-    // If folder ID is provided, fetch notes in that folder
     if (options.folderId) {
-      const { data: noteIds } = await supabase
+      const { data: notesFolders, error: notesFoldersError } = await supabase
         .from('notes_folders')
         .select('note_id')
         .eq('folder_id', options.folderId);
       
-      if (noteIds && noteIds.length > 0) {
-        query = query.in('id', noteIds.map(row => row.note_id));
-      } else {
-        return []; // No notes in this folder
-      }
+      if (notesFoldersError) throw notesFoldersError;
+      
+      const noteIds = notesFolders.map(nf => nf.note_id);
+      query = query.in('id', noteIds);
     }
-    
-    const { data, error } = await query.order('updated_at', { ascending: false });
-    
+
+    const { data, error } = await query;
+
     if (error) throw error;
-    return data || [];
-  } catch (error: any) {
-    toast({
-      title: "Error fetching notes",
-      description: error.message,
-      variant: "destructive",
-    });
+
+    return data as Note[];
+  } catch (error) {
+    console.error("Error fetching notes:", error);
     return [];
   }
-}
+};
 
-// Create a new note
-export async function createNote(note: Partial<NoteInput>) {
+export const updateNote = async (id: string, updates: Partial<Note>): Promise<Note | null> => {
   try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to create notes",
-        variant: "destructive",
-      });
-      return null;
-    }
-    
-    // Ensure title is not undefined and is a string
-    const title = note.title && note.title.trim() !== "" ? note.title : "Untitled";
-    
-    const noteData = {
-      ...note,
-      title, // Use the non-optional title
-      user_id: session.user.id
-    };
-    
     const { data, error } = await supabase
-      .from('notes')
-      .insert(noteData)
+      .from("notes")
+      .update(updates)
+      .eq("id", id)
       .select()
       .single();
-    
+
     if (error) throw error;
-    
-    return data;
-  } catch (error: any) {
-    toast({
-      title: "Error creating note",
-      description: error.message,
-      variant: "destructive",
-    });
+
+    return data as Note;
+  } catch (error) {
+    console.error("Error updating note:", error);
     return null;
   }
-}
+};
 
-// Update an existing note
-export async function updateNote(id: string, updates: Partial<NoteInput>) {
+export const deleteNote = async (id: string): Promise<boolean> => {
   try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to update notes",
-        variant: "destructive",
-      });
-      return null;
-    }
-    
-    const { data, error } = await supabase
-      .from('notes')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    return data;
-  } catch (error: any) {
-    toast({
-      title: "Error updating note",
-      description: error.message,
-      variant: "destructive",
-    });
-    return null;
-  }
-}
+    const { error } = await supabase.from("notes").delete().eq("id", id);
 
-// Get a single note by ID
-export async function getNote(id: string) {
-  try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to view notes",
-        variant: "destructive",
-      });
-      return null;
-    }
-    
-    const { data, error } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('id', id)
-      .single();
-    
     if (error) throw error;
-    
-    return data;
-  } catch (error: any) {
-    toast({
-      title: "Error fetching note",
-      description: error.message,
-      variant: "destructive",
-    });
-    return null;
-  }
-}
 
-// Delete a note permanently
-export async function deleteNote(id: string) {
-  try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to delete notes",
-        variant: "destructive",
-      });
-      return false;
-    }
-    
-    const { error } = await supabase
-      .from('notes')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
-    
     return true;
-  } catch (error: any) {
-    toast({
-      title: "Error deleting note",
-      description: error.message,
-      variant: "destructive",
-    });
+  } catch (error) {
+    console.error("Error deleting note:", error);
     return false;
   }
-}
+};
 
-// Move a note to trash
-export async function trashNote(id: string) {
+// Modify the createNote function to check for plan limits
+export const createNote = async (
+  title: string,
+  content?: string,
+  folderId?: string
+): Promise<Note | null> => {
   try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to trash notes",
-        variant: "destructive",
-      });
-      return null;
-    }
-    
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) throw userError;
+
+    // Create new note
     const { data, error } = await supabase
-      .from('notes')
-      .update({ 
-        is_trashed: true, 
-        trashed_at: new Date().toISOString() 
-      })
-      .eq('id', id)
+      .from("notes")
+      .insert([
+        {
+          title,
+          content,
+          user_id: userData.user.id,
+        },
+      ])
       .select()
       .single();
-    
-    if (error) throw error;
-    
-    return data;
-  } catch (error: any) {
-    toast({
-      title: "Error trashing note",
-      description: error.message,
-      variant: "destructive",
-    });
-    return null;
-  }
-}
 
-// Restore a note from trash
-export async function restoreNote(id: string) {
-  try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to restore notes",
-        variant: "destructive",
-      });
-      return null;
-    }
-    
-    const { data, error } = await supabase
-      .from('notes')
-      .update({ 
-        is_trashed: false, 
-        trashed_at: null 
-      })
-      .eq('id', id)
-      .select()
-      .single();
-    
     if (error) throw error;
-    
-    return data;
-  } catch (error: any) {
-    toast({
-      title: "Error restoring note",
-      description: error.message,
-      variant: "destructive",
-    });
-    return null;
-  }
-}
 
-// Toggle favorite status
-export async function toggleFavorite(id: string, isFavorite: boolean) {
-  try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to update notes",
-        variant: "destructive",
-      });
-      return null;
-    }
-    
-    const { data, error } = await supabase
-      .from('notes')
-      .update({ is_favorite: isFavorite })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    return data;
-  } catch (error: any) {
-    toast({
-      title: "Error updating note",
-      description: error.message,
-      variant: "destructive",
-    });
-    return null;
-  }
-}
+    // If a folder ID is provided, create a relationship
+    if (folderId && data) {
+      const { error: relationError } = await supabase
+        .from("notes_folders")
+        .insert([
+          {
+            note_id: data.id,
+            folder_id: folderId,
+          },
+        ]);
 
-// Toggle archived status
-export async function toggleArchived(id: string, isArchived: boolean) {
-  try {
-    // Get user session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast({
-        title: "Authentication error",
-        description: "You must be logged in to update notes",
-        variant: "destructive",
-      });
-      return null;
+      if (relationError) {
+        console.error("Error creating folder relationship:", relationError);
+      }
     }
-    
-    const { data, error } = await supabase
-      .from('notes')
-      .update({ is_archived: isArchived })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    return data;
-  } catch (error: any) {
-    toast({
-      title: "Error updating note",
-      description: error.message,
-      variant: "destructive",
-    });
+
+    return data as Note;
+  } catch (error) {
+    console.error("Error creating note:", error);
     return null;
   }
-}
+};
+
+export const trashNote = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from("notes")
+      .update({ is_trashed: true })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    return true;
+  } catch (error) {
+    console.error("Error trashing note:", error);
+    return false;
+  }
+};
+
+export const restoreNote = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from("notes")
+      .update({ is_trashed: false })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    return true;
+  } catch (error) {
+    console.error("Error restoring note:", error);
+    return false;
+  }
+};
+
+export const toggleFavoriteNote = async (id: string, isFavorite: boolean): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from("notes")
+      .update({ is_favorite: !isFavorite })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    return true;
+  } catch (error) {
+    console.error("Error toggling favorite note:", error);
+    return false;
+  }
+};
+
+export const toggleArchiveNote = async (id: string, isArchived: boolean): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from("notes")
+      .update({ is_archived: !isArchived })
+      .eq("id", id);
+
+    if (error) throw error;
+
+    return true;
+  } catch (error) {
+    console.error("Error toggling archive note:", error);
+    return false;
+  }
+};
