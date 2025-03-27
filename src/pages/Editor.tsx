@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { getNote } from "@/services/noteService";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchFolders } from "@/services/folderService";
+import { fetchFolders, getNotesFolders } from "@/services/folderService";
 
 export default function Editor() {
   const { id } = useParams();
@@ -17,6 +17,8 @@ export default function Editor() {
   const [isLoading, setIsLoading] = useState(false);
   const [note, setNote] = useState<any>(null);
   const [folders, setFolders] = useState<any[]>([]);
+  const [noteFolders, setNoteFolders] = useState<any[]>([]);
+  const [currentFolderName, setCurrentFolderName] = useState("");
 
   // Extract folderId from location state if present
   const folderId = location.state?.folderId;
@@ -30,6 +32,16 @@ export default function Editor() {
       setIsLoading(true);
       const noteData = await getNote(id!);
       setNote(noteData);
+      
+      // Get folders this note belongs to
+      const notesFoldersData = await getNotesFolders(id!);
+      setNoteFolders(notesFoldersData);
+      
+      // If the note belongs to a folder, set it as the current folder
+      if (notesFoldersData.length > 0) {
+        setCurrentFolderName(notesFoldersData[0].name);
+      }
+      
       setIsLoading(false);
       
       if (!noteData) {
@@ -82,10 +94,15 @@ export default function Editor() {
     );
   }
 
-  // Find folder name if available
-  const currentFolderName = folders.find(folder => 
-    folder.id === (isNewNote ? folderId : note?.folderId)
-  )?.name || '';
+  // Find initial folder ID - either from note's folders or from location state
+  const initialFolderId = noteFolders.length > 0 
+    ? noteFolders[0].id 
+    : (isNewNote ? folderId : undefined);
+
+  // Get folder name if available
+  const folderName = noteFolders.length > 0
+    ? folders.find(f => f.id === noteFolders[0].id)?.name || currentFolderName
+    : folders.find(f => f.id === folderId)?.name || "";
 
   return (
     <AppLayout>
@@ -101,8 +118,8 @@ export default function Editor() {
           initialContent={isNewNote ? "" : note?.content || ""}
           initialTags={isNewNote ? [] : note?.tags || []}
           initialColor={isNewNote ? "#FFFFFF" : note?.color || "#FFFFFF"}
-          initialFolderId={isNewNote ? folderId : note?.folderId}
-          currentFolderName={currentFolderName}
+          initialFolderId={initialFolderId}
+          currentFolderName={folderName}
           folders={folders}
           onSave={handleSave}
         />

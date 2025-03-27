@@ -40,6 +40,34 @@ export async function fetchFolders() {
   }
 }
 
+// Get a specific folder by ID
+export async function getFolder(id: string) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to view folders",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    const { data, error } = await supabase
+      .from('folders')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching folder:", error.message);
+    return null;
+  }
+}
+
 // Create a new folder
 export async function createFolder(name: string) {
   try {
