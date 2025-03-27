@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { X, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ interface ExpandableChatProps extends React.HTMLAttributes<HTMLDivElement> {
   position?: ChatPosition;
   size?: ChatSize;
   icon?: React.ReactNode;
+  onToggle?: (isOpen: boolean) => void;
 }
 
 const ExpandableChat: React.FC<ExpandableChatProps> = ({
@@ -44,12 +45,27 @@ const ExpandableChat: React.FC<ExpandableChatProps> = ({
   size = "md",
   icon,
   children,
+  onToggle,
   ...props
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  const toggleChat = () => setIsOpen(!isOpen);
+  const toggleChat = () => {
+    const newState = !isOpen;
+    setIsOpen(newState);
+    
+    if (onToggle) {
+      onToggle(newState);
+    }
+  };
+  
+  // Notify parent component of initial state
+  useEffect(() => {
+    if (onToggle) {
+      onToggle(isOpen);
+    }
+  }, []);
 
   return (
     <div

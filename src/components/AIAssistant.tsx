@@ -29,14 +29,16 @@ import { Label } from "@/components/ui/label";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/context/AuthContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import ReactMarkdown from "react-markdown";
 
 export function AIAssistant() {
   const { messages, isLoading, sendMessage, clearMessages, apiKeySet, setApiKey } = useChat();
   const { user } = useAuth();
   const [input, setInput] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [showApiKeyDialog, setShowApiKeyDialog] = useState(!apiKeySet);
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [apiKey, setApiKeyInput] = useState("");
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatBodyRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
@@ -76,6 +78,15 @@ export function AIAssistant() {
     setShowApiKeyDialog(false);
   };
 
+  // Handle chat toggle
+  const handleChatToggle = (isOpen: boolean) => {
+    setIsChatOpen(isOpen);
+    // Show API key dialog when chat is opened and API key is not set
+    if (isOpen && !apiKeySet) {
+      setShowApiKeyDialog(true);
+    }
+  };
+
   // Check if user has scrolled
   useEffect(() => {
     const chatBody = chatBodyRef.current;
@@ -98,6 +109,7 @@ export function AIAssistant() {
         size={isMobile ? "full" : "md"}
         position="bottom-right"
         icon={<Bot className="h-6 w-6" />}
+        onToggle={handleChatToggle}
       >
         <ExpandableChatHeader className="flex items-center justify-between">
           <div>
@@ -148,7 +160,13 @@ export function AIAssistant() {
                   <ChatBubbleMessage
                     variant={message.role === "user" ? "sent" : "received"}
                   >
-                    {message.content}
+                    {message.role === "user" ? (
+                      message.content
+                    ) : (
+                      <ReactMarkdown className="prose prose-sm dark:prose-invert max-w-none">
+                        {message.content}
+                      </ReactMarkdown>
+                    )}
                   </ChatBubbleMessage>
                   {message.role === "user" && (
                     <ChatBubbleAvatar

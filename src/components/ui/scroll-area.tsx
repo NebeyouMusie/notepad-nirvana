@@ -21,11 +21,10 @@ const ScrollArea = React.forwardRef<
     }
   }, [onScroll]);
 
-  // Forward the ref to the viewport
-  React.useImperativeHandle(ref, () => viewportRef.current as HTMLDivElement);
-
+  // Forward the ref to the Root component
   return (
     <ScrollAreaPrimitive.Root
+      ref={ref}
       className={cn("relative overflow-hidden", className)}
       {...props}
     >
