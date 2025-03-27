@@ -1,25 +1,46 @@
+
 import * as React from "react"
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 
 import { cn } from "@/lib/utils"
 
 const ScrollArea = React.forwardRef<
-  React.ElementRef<typeof ScrollAreaPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
->(({ className, children, ...props }, ref) => (
-  <ScrollAreaPrimitive.Root
-    ref={ref}
-    className={cn("relative overflow-hidden", className)}
-    {...props}
-  >
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
-      {children}
-    </ScrollAreaPrimitive.Viewport>
-    <ScrollBar />
-    <ScrollAreaPrimitive.Corner />
-  </ScrollAreaPrimitive.Root>
-))
-ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
+    onScroll?: React.UIEventHandler<HTMLDivElement>;
+  }
+>(({ className, children, onScroll, ...props }, ref) => {
+  const viewportRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle the scroll event and forward it to the onScroll prop
+  React.useEffect(() => {
+    const viewport = viewportRef.current;
+    if (viewport && onScroll) {
+      viewport.addEventListener('scroll', onScroll as any);
+      return () => viewport.removeEventListener('scroll', onScroll as any);
+    }
+  }, [onScroll]);
+
+  // Forward the ref to the viewport
+  React.useImperativeHandle(ref, () => viewportRef.current as HTMLDivElement);
+
+  return (
+    <ScrollAreaPrimitive.Root
+      className={cn("relative overflow-hidden", className)}
+      {...props}
+    >
+      <ScrollAreaPrimitive.Viewport 
+        ref={viewportRef} 
+        className="h-full w-full rounded-[inherit]"
+      >
+        {children}
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  )
+})
+ScrollArea.displayName = "ScrollArea"
 
 const ScrollBar = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,

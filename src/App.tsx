@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "@/context/AuthContext";
 import { useAuth } from "@/context/AuthContext";
@@ -55,6 +55,18 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// ChatAssistant wrapper that only shows on non-auth pages
+const ChatAssistantWrapper = () => {
+  const location = useLocation();
+  const isAuthPage = location.pathname === '/auth';
+  
+  if (isAuthPage) {
+    return null;
+  }
+  
+  return <AIAssistant />;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider defaultTheme="system" storageKey="theme">
@@ -83,8 +95,8 @@ const App = () => (
               </Routes>
             </AnimatePresence>
             
-            {/* The AI Assistant chat is placed outside of the routes so it's available everywhere */}
-            <AIAssistant />
+            {/* Conditionally render the AI Assistant */}
+            <ChatAssistantWrapper />
           </TooltipProvider>
         </ChatProvider>
       </AuthProvider>

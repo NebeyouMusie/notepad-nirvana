@@ -23,12 +23,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/context/AuthContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function AIAssistant() {
   const { messages, isLoading, sendMessage, clearMessages, apiKeySet, setApiKey } = useChat();
+  const { user } = useAuth();
   const [input, setInput] = useState("");
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(!apiKeySet);
@@ -36,6 +40,12 @@ export function AIAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatBodyRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  // Get user's avatar initial from email
+  const getUserInitial = () => {
+    if (!user || !user.email) return "U";
+    return user.email.charAt(0).toUpperCase();
+  };
 
   // Check if we need to show the scroll down button
   const handleScroll = () => {
@@ -117,45 +127,51 @@ export function AIAssistant() {
           </div>
         </ExpandableChatHeader>
 
-        <ExpandableChatBody ref={chatBodyRef} onScroll={handleScroll}>
-          <ChatMessageList>
-            {messages.map((message) => (
-              <ChatBubble
-                key={message.id}
-                variant={message.role === "user" ? "sent" : "received"}
-              >
-                {message.role === "ai" && (
+        <ExpandableChatBody>
+          <ScrollArea 
+            ref={chatBodyRef} 
+            className="h-full"
+            onScroll={handleScroll}
+          >
+            <ChatMessageList>
+              {messages.map((message) => (
+                <ChatBubble
+                  key={message.id}
+                  variant={message.role === "user" ? "sent" : "received"}
+                >
+                  {message.role === "ai" && (
+                    <ChatBubbleAvatar
+                      className="h-8 w-8 shrink-0"
+                      fallback="AI"
+                    />
+                  )}
+                  <ChatBubbleMessage
+                    variant={message.role === "user" ? "sent" : "received"}
+                  >
+                    {message.content}
+                  </ChatBubbleMessage>
+                  {message.role === "user" && (
+                    <ChatBubbleAvatar
+                      className="h-8 w-8 shrink-0"
+                      fallback={getUserInitial()}
+                    />
+                  )}
+                </ChatBubble>
+              ))}
+
+              {isLoading && (
+                <ChatBubble variant="received">
                   <ChatBubbleAvatar
                     className="h-8 w-8 shrink-0"
                     fallback="AI"
                   />
-                )}
-                <ChatBubbleMessage
-                  variant={message.role === "user" ? "sent" : "received"}
-                >
-                  {message.content}
-                </ChatBubbleMessage>
-                {message.role === "user" && (
-                  <ChatBubbleAvatar
-                    className="h-8 w-8 shrink-0"
-                    fallback="You"
-                  />
-                )}
-              </ChatBubble>
-            ))}
+                  <ChatBubbleMessage isLoading />
+                </ChatBubble>
+              )}
 
-            {isLoading && (
-              <ChatBubble variant="received">
-                <ChatBubbleAvatar
-                  className="h-8 w-8 shrink-0"
-                  fallback="AI"
-                />
-                <ChatBubbleMessage isLoading />
-              </ChatBubble>
-            )}
-
-            <div ref={messagesEndRef} />
-          </ChatMessageList>
+              <div ref={messagesEndRef} />
+            </ChatMessageList>
+          </ScrollArea>
 
           {showScrollButton && (
             <Button
@@ -210,6 +226,17 @@ export function AIAssistant() {
                 onChange={(e) => setApiKeyInput(e.target.value)}
                 placeholder="Enter your API key..."
               />
+              <p className="text-sm text-muted-foreground">
+                You can get your API key from{" "}
+                <a 
+                  href="https://aistudio.google.com/apikey" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Google AI Studio
+                </a>
+              </p>
             </div>
           </div>
           <DialogFooter>
