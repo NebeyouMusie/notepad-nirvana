@@ -2,67 +2,50 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { fetchArchivedNotes, Note } from "@/services/noteService";
-import { useNavigate } from "react-router-dom";
+import { fetchNotes, Note } from "@/services/noteService";
 import { motion } from "framer-motion";
-import { Archive, Plus } from "lucide-react";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { Loader2 } from "lucide-react";
 
 export default function Archived() {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-  
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadNotes = async () => {
+    setIsLoading(true);
+    const data = await fetchNotes({ archived: true });
+    setNotes(data);
+    setIsLoading(false);
+  };
+
   useEffect(() => {
-    const loadNotes = async () => {
-      setLoading(true);
-      const data = await fetchArchivedNotes();
-      setNotes(data);
-      setLoading(false);
-    };
-    
     loadNotes();
   }, []);
-  
+
   return (
     <AppLayout>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-semibold">Archived Notes</h1>
-        </div>
+      <div className="max-w-7xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-6"
+        >
+          <h1 className="text-3xl font-semibold">Archived Notes</h1>
+          <p className="text-muted-foreground">
+            {isLoading 
+              ? "Loading archived notes..." 
+              : `You have ${notes.length} archived note${notes.length !== 1 ? 's' : ''}`}
+          </p>
+        </motion.div>
         
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="border rounded-lg p-4">
-                <Skeleton className="h-8 w-2/3 mb-4" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-2/3" />
-              </div>
-            ))}
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : notes.length > 0 ? (
-          <NoteGrid notes={notes} />
         ) : (
-          <EmptyState
-            icon={Archive}
-            title="No archived notes"
-            description="Notes you archive will appear here."
-            action={
-              <Button onClick={() => navigate('/')} variant="outline" className="flex items-center gap-1">
-                View Active Notes
-              </Button>
-            }
-          />
+          <NoteGrid notes={notes} onUpdate={loadNotes} />
         )}
-      </motion.div>
+      </div>
     </AppLayout>
   );
 }

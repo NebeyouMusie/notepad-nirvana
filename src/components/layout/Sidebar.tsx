@@ -91,10 +91,15 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
     }
   };
 
-  // Handle navigation without opening sidebar on mobile
+  // Handle navigation on mobile devices
   const handleNavigation = (path: string) => {
-    // Just navigate without toggling sidebar on mobile
-    navigate(path);
+    if (isMobile && collapsed) {
+      // If on mobile and sidebar is collapsed, just navigate without opening sidebar
+      navigate(path);
+    } else {
+      // Normal navigation
+      navigate(path);
+    }
   };
 
   return (

@@ -223,11 +223,6 @@ export function NoteEditor({
     "#D7D8F8", // Light Purple
   ];
 
-  // Find the selected folder name
-  const selectedFolderName = selectedFolderId 
-    ? foldersList.find(f => f.id === selectedFolderId)?.name || currentFolderName 
-    : currentFolderName;
-
   return (
     <div className="flex flex-col h-full">
       <div className="border-b pb-2 mb-4">
@@ -383,7 +378,9 @@ export function NoteEditor({
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="w-full justify-start">
               <FolderOpen className="mr-2 h-4 w-4" />
-              {selectedFolderName || 'Select Folder'}
+              {selectedFolderId 
+                ? foldersList.find(f => f.id === selectedFolderId)?.name || currentFolderName || 'Select Folder'
+                : currentFolderName || 'Select Folder'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56">
