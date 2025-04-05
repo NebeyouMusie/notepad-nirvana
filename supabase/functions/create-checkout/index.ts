@@ -1,7 +1,6 @@
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0?target=deno";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@12.18.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,49 +8,59 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 200,
+    });
   }
 
   try {
-    // Extract request data
     const { priceId } = await req.json();
-    if (!priceId) {
-      throw new Error("Missing priceId");
+
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // Get the token from the authorization header
+    const token = authHeader.replace('Bearer ', '');
 
-    // Get user from auth header
-    const authHeader = req.headers.get('Authorization')!;
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
+    // Create a Supabase client with the token
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: `Bearer ${token}` } } }
     );
 
+    // Get the user from the token
+    const {
+      data: { user },
+      error: userError,
+    } = await supabaseClient.auth.getUser();
+
     if (userError || !user) {
-      throw new Error("Unauthorized");
+      throw new Error('Error getting user');
     }
 
     // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-      apiVersion: "2023-10-16",
+    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+      // apiVersion: '2023-10-16',
+      httpClient: Stripe.createFetchHttpClient(),
     });
 
-    // Check if user already has a Stripe customer ID
-    let customerId;
-    const { data: subscriptionData } = await supabase
-      .from("user_subscriptions")
-      .select("stripe_customer_id")
-      .eq("user_id", user.id)
+    // Get or create customer
+    let customerId: string;
+    const { data: existingCustomers } = await supabaseClient
+      .from('user_subscriptions')
+      .select('stripe_customer_id')
+      .eq('user_id', user.id)
       .single();
 
-    // If user has a customer ID, use it
-    if (subscriptionData?.stripe_customer_id) {
-      customerId = subscriptionData.stripe_customer_id;
+    if (existingCustomers?.stripe_customer_id) {
+      customerId = existingCustomers.stripe_customer_id;
     } else {
       // Create a new customer
       const customer = await stripe.customers.create({
@@ -62,11 +71,11 @@ serve(async (req) => {
       });
       customerId = customer.id;
 
-      // Update customer ID in database
-      await supabase
-        .from("user_subscriptions")
+      // Store the Stripe customer ID in your database
+      await supabaseClient
+        .from('user_subscriptions')
         .update({ stripe_customer_id: customerId })
-        .eq("user_id", user.id);
+        .eq('user_id', user.id);
     }
 
     // Create a checkout session
@@ -78,26 +87,30 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
-      mode: "subscription",
-      success_url: `${req.headers.get("origin")}/account?checkout=success`,
-      cancel_url: `${req.headers.get("origin")}/upgrade?checkout=cancelled`,
+      mode: 'subscription',
+      success_url: `${req.headers.get('origin')}/account?success=true`,
+      cancel_url: `${req.headers.get('origin')}/upgrade?canceled=true`,
+      subscription_data: {
+        metadata: {
+          user_id: user.id,
+        },
+      },
     });
 
-    // Return the checkout session URL
-    return new Response(
-      JSON.stringify({ url: session.url }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+    return new Response(JSON.stringify({ url: session.url }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      }
-    );
+    console.error('Error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+    });
   }
 });
+
+function createClient(supabaseUrl: string, supabaseKey: string, options: any) {
+  const { createClient } = require('https://esm.sh/@supabase/supabase-js@2.38.4');
+  return createClient(supabaseUrl, supabaseKey, options);
+}

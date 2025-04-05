@@ -1,9 +1,8 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Star, Trash, MoreHorizontal, Archive } from "lucide-react";
 import { motion } from "framer-motion";
-import { Note } from "@/services/noteService";
+import { Note } from "@/types";
 import { 
   toggleFavorite, 
   trashNote, 

@@ -10,7 +10,7 @@ const handleServiceError = (error: any, message: string) => {
 };
 
 // Function to fetch all notes for a user
-export const fetchNotes = async (filters?: { favorite?: boolean, archived?: boolean, trashed?: boolean }): Promise<Note[]> => {
+export const fetchNotes = async (filters?: { favorite?: boolean, archived?: boolean, trashed?: boolean, folderId?: string }): Promise<Note[]> => {
   try {
     const { data: session } = await supabase.auth.getSession();
     const userId = session?.session?.user?.id;
@@ -39,6 +39,22 @@ export const fetchNotes = async (filters?: { favorite?: boolean, archived?: bool
       query = query.eq('is_trashed', false);
     }
     
+    // If folderId is provided, get notes from that folder
+    if (filters?.folderId) {
+      const { data: folderNotesIds } = await supabase
+        .from('notes_folders')
+        .select('note_id')
+        .eq('folder_id', filters.folderId);
+      
+      if (folderNotesIds && folderNotesIds.length > 0) {
+        const noteIds = folderNotesIds.map(item => item.note_id);
+        query = query.in('id', noteIds);
+      } else {
+        // If no notes in this folder, return empty array
+        return [];
+      }
+    }
+    
     const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
@@ -53,7 +69,7 @@ export const fetchNotes = async (filters?: { favorite?: boolean, archived?: bool
 };
 
 // Function to fetch a single note by ID
-export const fetchNoteById = async (id: string): Promise<Note | null> => {
+export const fetchNote = async (id: string): Promise<Note | null> => {
   try {
     const { data: session } = await supabase.auth.getSession();
     const userId = session?.session?.user?.id;
@@ -80,8 +96,8 @@ export const fetchNoteById = async (id: string): Promise<Note | null> => {
   }
 };
 
-// Alias for fetchNoteById for better naming consistency
-export const getNote = fetchNoteById;
+// Alias for fetchNote for better naming consistency
+export const getNote = fetchNote;
 
 // Function to create a new note
 export const createNote = async (noteData: Partial<Note>): Promise<Note | null> => {
@@ -104,16 +120,17 @@ export const createNote = async (noteData: Partial<Note>): Promise<Note | null> 
       throw new Error("You've reached your notes limit. Please upgrade to create more notes.");
     }
 
+    const newNote = {
+      ...noteData,
+      user_id: userId,
+      title: noteData.title || "Untitled",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from('notes')
-      .insert([
-        {
-          ...noteData,
-          user_id: userId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ])
+      .insert(newNote)
       .select()
       .single();
 

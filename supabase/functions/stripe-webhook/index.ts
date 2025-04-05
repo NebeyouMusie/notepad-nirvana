@@ -1,127 +1,145 @@
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0?target=deno";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@12.18.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req) => {
-  try {
-    // Initialize Stripe 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-      apiVersion: "2023-10-16",
+  // Handle CORS
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 200,
     });
-    
-    // Get the signature from the header
-    const signature = req.headers.get("stripe-signature")!;
+  }
 
-    // Get the raw body
+  try {
+    // Get the request body
     const body = await req.text();
     
-    // Verify webhook signature
+    // Get the signature from the headers
+    const signature = req.headers.get('stripe-signature');
+    if (!signature) {
+      throw new Error('No Stripe signature found');
+    }
+
+    // Initialize Stripe
+    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+
+    // Verify the event
     const event = stripe.webhooks.constructEvent(
       body,
       signature,
-      Deno.env.get("STRIPE_WEBHOOK_SECRET")!
+      Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
     );
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // Create a Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') || '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    );
 
-    // Extract the object from the event
-    const object = event.data.object as any;
-
-    // Handle the event type
+    // Handle the event
     switch (event.type) {
-      // Handle successful subscription creation or update
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-        await handleSubscriptionChange(supabase, object);
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        
+        // Check if this is a subscription checkout
+        if (session.mode === 'subscription') {
+          await handleSubscriptionCheckout(session, supabaseClient);
+        }
         break;
+      }
       
-      // Handle subscription cancellation
-      case 'customer.subscription.deleted':
-        await handleSubscriptionDelete(supabase, object);
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        await handleSubscriptionChange(subscription, supabaseClient);
         break;
+      }
     }
 
-    // Return a 200 response to acknowledge receipt of the event
     return new Response(JSON.stringify({ received: true }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
-      headers: { "Content-Type": "application/json" }
     });
-  } catch (err) {
-    console.error(`Error handling webhook: ${err.message}`);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (error) {
+    console.error('Error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400,
-      headers: { "Content-Type": "application/json" }
     });
   }
 });
 
-async function handleSubscriptionChange(supabase, subscription) {
-  try {
-    // Get the customer from the subscription
-    const customerId = subscription.customer;
-    
-    // Find the user with this customer ID
-    const { data: users, error } = await supabase
-      .from("user_subscriptions")
-      .select("user_id")
-      .eq("stripe_customer_id", customerId);
-    
-    if (error || !users.length) {
-      console.error("Error finding user:", error);
-      return;
-    }
-    
-    const userId = users[0].user_id;
-    
-    // Update the subscription information
-    await supabase
-      .from("user_subscriptions")
-      .update({
-        stripe_subscription_id: subscription.id,
-        plan: subscription.status === 'active' ? 'premium' : 'free',
-        status: subscription.status,
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq("user_id", userId);
-  } catch (error) {
-    console.error("Error in handleSubscriptionChange:", error);
+// Handle subscription checkout
+async function handleSubscriptionCheckout(session: any, supabaseClient: any) {
+  // Get the subscription from Stripe
+  const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
+    httpClient: Stripe.createFetchHttpClient(),
+  });
+  
+  // Get user ID from subscription metadata
+  const subscriptionId = session.subscription;
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const userId = subscription.metadata.user_id;
+  
+  if (!userId) {
+    console.error('No user ID found in subscription metadata');
+    return;
   }
+  
+  // Update the user's subscription in the database
+  await supabaseClient
+    .from('user_subscriptions')
+    .update({
+      stripe_subscription_id: subscription.id,
+      plan: 'premium',
+      status: subscription.status,
+      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId);
 }
 
-async function handleSubscriptionDelete(supabase, subscription) {
-  try {
-    // Get the customer from the subscription
-    const customerId = subscription.customer;
-    
-    // Find the user with this customer ID
-    const { data: users, error } = await supabase
-      .from("user_subscriptions")
-      .select("user_id")
-      .eq("stripe_customer_id", customerId);
-    
-    if (error || !users.length) {
-      console.error("Error finding user:", error);
-      return;
-    }
-    
-    const userId = users[0].user_id;
-    
-    // Update the subscription to free
-    await supabase
-      .from("user_subscriptions")
-      .update({
-        plan: 'free',
-        status: 'canceled',
-        updated_at: new Date().toISOString()
-      })
-      .eq("user_id", userId);
-  } catch (error) {
-    console.error("Error in handleSubscriptionDelete:", error);
+// Handle subscription changes
+async function handleSubscriptionChange(subscription: any, supabaseClient: any) {
+  // Find the user from the subscription customer ID
+  const { data: userData } = await supabaseClient
+    .from('user_subscriptions')
+    .select('user_id')
+    .eq('stripe_customer_id', subscription.customer)
+    .single();
+  
+  if (!userData) {
+    console.error('No user found for customer', subscription.customer);
+    return;
   }
+  
+  // Update the subscription status
+  await supabaseClient
+    .from('user_subscriptions')
+    .update({
+      status: subscription.status,
+      plan: subscription.status === 'active' ? 'premium' : 'free',
+      current_period_start: subscription.current_period_start 
+        ? new Date(subscription.current_period_start * 1000).toISOString() 
+        : null,
+      current_period_end: subscription.current_period_end 
+        ? new Date(subscription.current_period_end * 1000).toISOString() 
+        : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userData.user_id);
+}
+
+function createClient(supabaseUrl: string, supabaseKey: string) {
+  const { createClient } = require('https://esm.sh/@supabase/supabase-js@2.38.4');
+  return createClient(supabaseUrl, supabaseKey);
 }

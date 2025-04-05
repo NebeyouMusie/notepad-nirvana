@@ -1,6 +1,6 @@
 
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Note } from "@/services/noteService";
+import { Note } from "@/types";
 import { NoteCard } from "./NoteCard";
 
 interface NoteGridProps {
@@ -29,6 +29,7 @@ export function NoteGrid({ notes, onUpdate }: NoteGridProps) {
         <NoteCard 
           key={note.id} 
           note={note}
+          onUpdate={onUpdate}
         />
       ))}
     </div>

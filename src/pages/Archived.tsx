@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
-import { fetchNotes, Note } from "@/services/noteService";
+import { fetchNotes } from "@/services/noteService";
+import { Note } from "@/types";
 import { motion } from "framer-motion";
 import { Loader2, Archive } from "lucide-react";
 

@@ -1,106 +1,122 @@
 import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
-import { fetchNotes, Note } from "@/services/noteService";
-import { Folder, fetchFolders, updateFolder, deleteFolder } from "@/services/folderService";
-import { motion } from "framer-motion";
-import { Loader2, Pencil, Trash2, FolderOpen, Plus } from "lucide-react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { fetchNotes } from "@/services/noteService";
+import { fetchFolders, updateFolder, deleteFolder } from "@/services/folderService";
+import { Note, Folder } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { motion } from "framer-motion";
+import { Loader2, FolderOpen, Pencil, Trash, Plus } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function FolderPage() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [notes, setNotes] = useState<Note[]>([]);
   const [folder, setFolder] = useState<Folder | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { toast } = useToast();
 
   const loadData = async () => {
+    if (!id) return;
+    
     setIsLoading(true);
-    
-    // Load folder
-    const folders = await fetchFolders();
-    const currentFolder = folders.find(f => f.id === id);
-    setFolder(currentFolder || null);
-    
-    if (currentFolder) {
-      setNewFolderName(currentFolder.name);
+    try {
+      // Load folder details
+      const folders = await fetchFolders();
+      const currentFolder = folders.find(f => f.id === id) || null;
       
-      // Load notes in folder
+      if (!currentFolder) {
+        navigate("/");
+        return;
+      }
+      
+      setFolder(currentFolder);
+      setFolderName(currentFolder.name);
+      
+      // Load notes in this folder
       const folderNotes = await fetchNotes({ folderId: id });
       setNotes(folderNotes);
+    } catch (error) {
+      console.error("Error loading folder data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load folder data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   useEffect(() => {
-    if (id) {
-      loadData();
-    }
-  }, [id]);
+    loadData();
+  }, [id, navigate]);
 
   const handleUpdateFolder = async () => {
-    if (!id || !newFolderName.trim()) return;
+    if (!id || !folderName.trim()) return;
     
-    setIsProcessing(true);
-    const updatedFolder = await updateFolder(id, newFolderName.trim());
-    
-    if (updatedFolder) {
-      setFolder(updatedFolder);
-      setIsEditing(false);
+    setIsUpdating(true);
+    try {
+      await updateFolder(id, { name: folderName });
+      setFolder(prev => prev ? { ...prev, name: folderName } : null);
+      setIsEditDialogOpen(false);
       toast({
         title: "Folder updated",
-        description: "Folder name has been updated",
+        description: "Folder name has been updated successfully",
       });
+    } catch (error) {
+      console.error("Error updating folder:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update folder",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
     }
-    setIsProcessing(false);
   };
 
   const handleDeleteFolder = async () => {
     if (!id) return;
     
-    setIsProcessing(true);
-    const success = await deleteFolder(id);
-    
-    if (success) {
+    setIsUpdating(true);
+    try {
+      await deleteFolder(id);
       toast({
         title: "Folder deleted",
-        description: "The folder has been deleted",
+        description: "Folder has been deleted successfully",
       });
       navigate("/");
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete folder",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+      setIsDeleteDialogOpen(false);
     }
-    setIsProcessing(false);
   };
 
   if (isLoading) {
     return (
       <AppLayout>
         <div className="max-w-7xl mx-auto">
-          <div className="mb-6">
-            <Skeleton className="h-10 w-64 mb-2" />
-            <Skeleton className="h-4 w-40" />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-64 w-full" />
-            ))}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Loading folder...</span>
+            </div>
           </div>
         </div>
       </AppLayout>
@@ -110,10 +126,13 @@ export default function FolderPage() {
   if (!folder) {
     return (
       <AppLayout>
-        <div className="max-w-7xl mx-auto text-center py-12">
-          <FolderOpen className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium">Folder not found</h3>
-          <p className="text-muted-foreground">The folder you're looking for doesn't exist</p>
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-2 text-muted-foreground">
+              <FolderOpen className="h-4 w-4" />
+              <span>Folder not found</span>
+            </div>
+          </div>
         </div>
       </AppLayout>
     );
@@ -129,111 +148,83 @@ export default function FolderPage() {
           className="mb-6"
         >
           <div className="flex items-center justify-between">
-            {isEditing ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  className="max-w-xs"
-                  autoFocus
-                />
-                <Button 
-                  onClick={handleUpdateFolder} 
-                  disabled={isProcessing || !newFolderName.trim()}
-                  size="sm"
-                >
-                  {isProcessing ? "Saving..." : "Save"}
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  onClick={() => {
-                    setIsEditing(false);
-                    setNewFolderName(folder.name);
-                  }}
-                  size="sm"
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <h1 className="text-3xl font-semibold flex items-center">
-                <FolderOpen className="mr-2 h-6 w-6" />
-                {folder.name}
-              </h1>
-            )}
-            
-            <div className="flex items-center gap-2">
-              {!isEditing && (
-                <>
-                  <Link to={`/new`} state={{ folderId: id }}>
-                    <Button className="gap-1">
-                      <Plus size={18} />
-                      <span>New Note</span>
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Rename
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsDeleteDialogOpen(true)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </Button>
-                </>
-              )}
+            <h1 className="text-3xl font-semibold flex items-center gap-2">
+              <FolderOpen className="h-6 w-6" />
+              {folder.name}
+            </h1>
+            <div className="space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditDialogOpen(true)}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Folder
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                disabled={isUpdating}
+              >
+                <Trash className="h-4 w-4 mr-2" />
+                {isUpdating ? "Deleting..." : "Delete Folder"}
+              </Button>
             </div>
           </div>
-          <p className="text-muted-foreground">
-            {notes.length} note{notes.length !== 1 ? 's' : ''} in this folder
-          </p>
         </motion.div>
         
-        {notes.length > 0 ? (
-          <NoteGrid notes={notes} onUpdate={loadData} />
-        ) : (
-          <div className="text-center py-12 bg-muted/20 rounded-lg">
-            <p className="text-muted-foreground mb-4">No notes in this folder yet</p>
-            <Link to={`/new`} state={{ folderId: id }}>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create your first note
-              </Button>
-            </Link>
+        {notes.length === 0 ? (
+          <div className="text-center py-12">
+            <Plus className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">No notes in this folder</h3>
+            <p className="text-muted-foreground">Add notes to this folder to see them here</p>
           </div>
+        ) : (
+          <NoteGrid notes={notes} />
         )}
       </div>
 
+      {/* Edit Folder Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Folder Name</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Input
+                id="name"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateFolder}>Save changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Folder Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Folder</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete the folder "{folder.name}"? The notes within this folder will not be deleted, but they will be removed from this folder.
-            </DialogDescription>
           </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <p>Are you sure you want to delete this folder? This action cannot be undone.</p>
+          </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsDeleteDialogOpen(false)}
-              disabled={isProcessing}
-            >
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteFolder}
-              disabled={isProcessing}
-              isDelete={true}
-            >
-              {isProcessing ? "Deleting..." : "Delete Folder"}
+            <Button variant="destructive" onClick={handleDeleteFolder}>
+              Delete Folder
             </Button>
           </DialogFooter>
         </DialogContent>
