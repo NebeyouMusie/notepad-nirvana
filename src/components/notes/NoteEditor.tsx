@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Editor } from "@tinymce/tinymce-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   DropdownMenu,
@@ -55,13 +55,12 @@ export function NoteEditor({ onSave }: NoteEditorProps) {
   const [folders, setFolders] = useState<any[]>([]);
   const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
-  const editorRef = useRef<any>(null);
   const { isPremium, isAtNotesLimit } = usePlan();
 
   // Load note data
   useEffect(() => {
     const loadNote = async () => {
-      if (id) {
+      if (id && id !== "new") {
         setIsLoading(true);
         try {
           const noteData = await fetchNote(id);
@@ -122,18 +121,18 @@ export function NoteEditor({ onSave }: NoteEditorProps) {
     try {
       let savedNote: Note | null = null;
       
-      if (id && note) {
+      if (id && id !== "new" && note) {
         // Update existing note
         savedNote = await updateNote(id, {
           title,
-          content: editorRef.current?.getContent() || content,
+          content,
         });
       } else {
         // Create new note
         try {
           savedNote = await createNote({
             title,
-            content: editorRef.current?.getContent() || content,
+            content,
           });
         } catch (error: any) {
           // Check if this is a plan limit error
@@ -147,10 +146,10 @@ export function NoteEditor({ onSave }: NoteEditorProps) {
       
       if (savedNote) {
         // Handle folder assignments
-        if (id) {
+        if (id && id !== "new") {
           // Get current folders
           const currentFolders = folders
-            .filter(folder => folder.notes?.some(note => note.id === id))
+            .filter(folder => folder.notes?.some((note: any) => note.id === id))
             .map(folder => folder.id);
           
           // Folders to add
@@ -289,6 +288,10 @@ export function NoteEditor({ onSave }: NoteEditorProps) {
     );
   };
 
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-4">
@@ -372,23 +375,11 @@ export function NoteEditor({ onSave }: NoteEditorProps) {
       </div>
       
       <div className="flex-1 p-4">
-        <Editor
-          onInit={(evt, editor) => editorRef.current = editor}
-          initialValue={content}
-          init={{
-            height: "100%",
-            menubar: false,
-            plugins: [
-              'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-              'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-              'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
-            ],
-            toolbar: 'undo redo | blocks | ' +
-              'bold italic forecolor | alignleft aligncenter ' +
-              'alignright alignjustify | bullist numlist outdent indent | ' +
-              'removeformat | help',
-            content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
-          }}
+        <Textarea
+          value={content}
+          onChange={handleContentChange}
+          placeholder="Start writing your note here..."
+          className="w-full h-full min-h-[60vh] resize-none focus-visible:ring-0 border rounded-md p-4"
         />
       </div>
       

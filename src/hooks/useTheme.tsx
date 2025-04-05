@@ -1,5 +1,5 @@
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -30,12 +30,19 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+    () => {
+      if (typeof window !== 'undefined') {
+        return (localStorage.getItem(storageKey) as Theme) || defaultTheme;
+      }
+      return defaultTheme;
+    }
   );
 
   const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('light');
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     const root = window.document.documentElement;
     
     root.classList.remove('light', 'dark');

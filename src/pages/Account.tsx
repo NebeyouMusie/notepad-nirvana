@@ -4,18 +4,22 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { usePlan } from "@/hooks/usePlan";
 import { Link } from "react-router-dom";
-import { ArrowRight, CalendarIcon, CreditCard, Shield, Star, Tag } from "lucide-react";
+import { ArrowRight, CalendarIcon, CreditCard, Shield, Star, Tag, AlertTriangle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Account() {
   const { user, signOut } = useAuth();
   const { subscription, isPremium, notesLimit, foldersLimit } = usePlan();
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   
   const handleSignOut = async () => {
     setIsLoading(true);
@@ -31,6 +35,44 @@ export default function Account() {
       month: "long",
       day: "numeric",
     });
+  };
+  
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== user?.email) {
+      toast({
+        title: "Confirmation failed",
+        description: "Please type your email correctly to confirm deletion",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // In a real implementation, you would call an API endpoint to delete the user's account
+      const { error } = await supabase.auth.admin.deleteUser(user?.id || "");
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Account deleted",
+        description: "Your account has been permanently deleted"
+      });
+      
+      // Sign out after deletion
+      await signOut();
+    } catch (error) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete account. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+      setIsDeleteDialogOpen(false);
+    }
   };
 
   return (
@@ -180,9 +222,74 @@ export default function Account() {
                 )}
               </CardFooter>
             </Card>
+            
+            {/* Danger Zone */}
+            <Card className="border-destructive/50">
+              <CardHeader className="text-destructive">
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Danger Zone
+                </CardTitle>
+                <CardDescription>
+                  Permanently delete your account and all your data
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Once you delete your account, there is no going back. All of your notes, folders and personal information will be permanently deleted.
+                </p>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  Delete Account
+                </Button>
+              </CardContent>
+            </Card>
           </div>
         </motion.div>
       </div>
+      
+      {/* Delete Account Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Account
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete your account and remove your data from our servers.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <p className="text-sm mb-4">
+              To confirm, please type your email address: <span className="font-semibold">{user?.email}</span>
+            </p>
+            <input 
+              type="email"
+              value={deleteConfirmation}
+              onChange={(e) => setDeleteConfirmation(e.target.value)}
+              placeholder="Enter your email address"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirmation !== user?.email || isLoading}
+            >
+              {isLoading ? "Deleting..." : "Permanently Delete Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

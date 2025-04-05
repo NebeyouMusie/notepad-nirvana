@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/context/AuthContext";
 import { usePlan } from "@/hooks/usePlan";
@@ -172,20 +173,29 @@ export default function Upgrade() {
 
         <div className="mt-16 max-w-2xl mx-auto">
           <h2 className="text-2xl font-bold mb-4">Frequently Asked Questions</h2>
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-medium text-lg">What happens to my notes if I downgrade?</h3>
-              <p className="text-muted-foreground">Your notes will still be saved, but you won't be able to create new ones beyond the free limit until you make space.</p>
-            </div>
-            <div>
-              <h3 className="font-medium text-lg">Can I cancel my subscription anytime?</h3>
-              <p className="text-muted-foreground">Yes, you can cancel your subscription at any time from your account page.</p>
-            </div>
-            <div>
-              <h3 className="font-medium text-lg">How is my payment information secured?</h3>
-              <p className="text-muted-foreground">All payments are processed securely through Stripe. We never store your card details.</p>
-            </div>
-          </div>
+          
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="item-1">
+              <AccordionTrigger>What happens to my notes if I downgrade?</AccordionTrigger>
+              <AccordionContent>
+                Your notes will still be saved, but you won't be able to create new ones beyond the free limit until you make space.
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="item-2">
+              <AccordionTrigger>Can I cancel my subscription anytime?</AccordionTrigger>
+              <AccordionContent>
+                Yes, you can cancel your subscription at any time from your account page.
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="item-3">
+              <AccordionTrigger>How is my payment information secured?</AccordionTrigger>
+              <AccordionContent>
+                All payments are processed securely through Stripe. We never store your card details.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       </div>
     </AppLayout>
