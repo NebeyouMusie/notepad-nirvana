@@ -23,6 +23,7 @@ import Trash from "./pages/Trash";
 import Settings from "./pages/Settings";
 import Folder from "./pages/Folder";
 import Account from "./pages/Account";
+import Upgrade from "./pages/Upgrade"; // Add the new Upgrade page
 
 // Create the query client
 const queryClient = new QueryClient();
@@ -91,6 +92,7 @@ const App = () => (
                 <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/folders/:id" element={<ProtectedRoute><Folder /></ProtectedRoute>} />
                 <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+                <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
                 
                 {/* Catch-all route */}
                 <Route path="*" element={<NotFound />} />

@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
+import { usePlan } from "@/hooks/usePlan";
 import { motion } from "framer-motion";
-import { User, LogOut, AlertTriangle } from "lucide-react";
+import { format } from "date-fns";
+import { User, LogOut, AlertTriangle, Sparkles, Calendar } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
   AlertDialog,
@@ -20,9 +22,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "react-router-dom";
 
 export default function Account() {
   const { user, signOut } = useAuth();
+  const { subscription, isPremium, notesLimit, foldersLimit, isLoading: planLoading } = usePlan();
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -62,6 +66,11 @@ export default function Account() {
     }
   };
 
+  // Format subscription end date if available
+  const formattedEndDate = subscription?.current_period_end 
+    ? format(new Date(subscription.current_period_end), 'MMMM d, yyyy') 
+    : null;
+
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto">
@@ -96,6 +105,82 @@ export default function Account() {
                 Your email cannot be changed
               </p>
             </div>
+          </div>
+          
+          {/* Subscription section */}
+          <div className="bg-card border rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-5 w-5 text-yellow-500" />
+              <h2 className="text-xl font-medium">Subscription</h2>
+            </div>
+            
+            {planLoading ? (
+              <div className="py-4 text-center text-muted-foreground">
+                Loading subscription information...
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <h3 className="font-medium flex items-center">
+                      {isPremium ? (
+                        <>
+                          <span className="mr-2">Premium Plan</span>
+                          <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">Active</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="mr-2">Free Plan</span>
+                          <span className="text-xs bg-muted-foreground text-background px-2 py-0.5 rounded-full">Basic</span>
+                        </>
+                      )}
+                    </h3>
+                    
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {isPremium 
+                        ? "You have access to all premium features"
+                        : `Limited to ${notesLimit} notes and ${foldersLimit} folders`
+                      }
+                    </p>
+                    
+                    {isPremium && formattedEndDate && (
+                      <div className="flex items-center gap-1 mt-1 text-sm">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>Renews on {formattedEndDate}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    asChild={isPremium ? false : true}
+                    variant={isPremium ? "outline" : "default"}
+                    className={isPremium ? "" : "sm:self-end"}
+                    disabled={isPremium}
+                  >
+                    {isPremium ? (
+                      "Manage Subscription"
+                    ) : (
+                      <Link to="/upgrade">
+                        Upgrade to Premium
+                      </Link>
+                    )}
+                  </Button>
+                </div>
+                
+                {!isPremium && (
+                  <div className="text-sm">
+                    <p>
+                      Upgrade to <strong>Premium</strong> to unlock:
+                    </p>
+                    <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
+                      <li>Unlimited notes and folders</li>
+                      <li>Priority support</li>
+                      <li>All future premium features</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           <div className="bg-card border rounded-lg p-6">

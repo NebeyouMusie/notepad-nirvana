@@ -11,7 +11,8 @@ import {
   Trash,
   User,
   Settings,
-  LogOut
+  LogOut,
+  Sparkles
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -23,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { createFolder } from "@/services/folderService";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { usePlan } from "@/hooks/usePlan";
 
 interface SidebarProps {
   className?: string;
@@ -40,6 +42,7 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const isMobile = useIsMobile();
+  const { isPremium, isAtFoldersLimit } = usePlan();
   
   const isActive = (path: string) => location.pathname === path;
   const isFolderActive = (id: string) => location.pathname === `/folders/${id}`;
@@ -102,6 +105,20 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
     }
   };
 
+  const handleAddFolderClick = () => {
+    if (isAtFoldersLimit) {
+      toast({
+        title: "Folder limit reached",
+        description: "You've reached the maximum number of folders for your plan. Upgrade to create more folders.",
+        variant: "destructive",
+      });
+      navigate("/upgrade");
+      return;
+    }
+    
+    setIsDialogOpen(true);
+  };
+
   return (
     <div
       className={`fixed top-0 left-0 h-screen transition-all duration-300 ${
@@ -156,7 +173,10 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
                 </span>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <button className="rounded-full p-1 hover:bg-secondary transition-colors">
+                    <button 
+                      className="rounded-full p-1 hover:bg-secondary transition-colors"
+                      onClick={handleAddFolderClick}
+                    >
                       <Plus size={14} />
                     </button>
                   </DialogTrigger>
@@ -230,6 +250,18 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
           >
             <User size={18} />
             {!collapsed && <span>Account</span>}
+          </button>
+          <button
+            onClick={() => handleNavigation("/upgrade")}
+            className={`sidebar-item w-full text-left ${isActive("/upgrade") ? "active" : ""}`}
+          >
+            <Sparkles size={18} className="text-yellow-500" />
+            {!collapsed && (
+              <span className="flex items-center">
+                Upgrade
+                {!isPremium && <span className="ml-1.5 text-[10px] bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-1.5 py-0.5 rounded-full">Pro</span>}
+              </span>
+            )}
           </button>
           <button
             onClick={() => signOut()}
