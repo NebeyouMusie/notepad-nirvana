@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -12,7 +13,7 @@ export type Folder = {
 export const createFolder = async (name: string): Promise<Folder | null> => {
   try {
     const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = session?.session?.user?.id;
     
     if (!userId) {
       throw new Error("You must be logged in to create folders");
@@ -50,7 +51,7 @@ export const createFolder = async (name: string): Promise<Folder | null> => {
 export const fetchFolders = async (): Promise<Folder[]> => {
   try {
     const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = session?.session?.user?.id;
 
     if (!userId) {
       console.error("User not logged in");

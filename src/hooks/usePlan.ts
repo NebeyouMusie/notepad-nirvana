@@ -1,102 +1,113 @@
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
-export type PlanType = "free" | "premium";
-export type PlanStatus = "active" | "canceled" | "past_due" | "unpaid";
-
+// Define types for subscription data
 export interface Subscription {
-  id: string;
-  plan: PlanType;
-  status: PlanStatus;
-  current_period_end?: string | null;
+  id?: string;
+  user_id?: string;
+  plan: 'free' | 'premium';
+  status: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  current_period_start?: string;
+  current_period_end?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export const usePlan = () => {
+// Define what the hook returns
+export interface PlanDetails {
+  isPremium: boolean;
+  isLoading: boolean;
+  subscription: Subscription | null;
+  notesLimit: number;
+  foldersLimit: number;
+  notesRemaining: number;
+  foldersRemaining: number;
+}
+
+export function usePlan(): PlanDetails {
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [notesCount, setNotesCount] = useState(0);
-  const [foldersCount, setFoldersCount] = useState(0);
+  const [notesCount, setNotesCount] = useState<number>(0);
+  const [foldersCount, setFoldersCount] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Fetch user subscription status and resource counts
+  // Constants for free plan limits
+  const FREE_NOTES_LIMIT = 10;
+  const FREE_FOLDERS_LIMIT = 5;
+
   useEffect(() => {
-    const fetchSubscription = async () => {
+    async function fetchSubscriptionData() {
+      setIsLoading(true);
+      
       if (!user) {
         setIsLoading(false);
         return;
       }
-
+      
       try {
-        // Get subscription info
-        const { data: subscriptionData, error: subError } = await supabase
-          .from("user_subscriptions")
-          .select("*")
-          .eq("user_id", user.id)
+        // Get user's subscription details
+        const { data: subscriptionData, error: subscriptionError } = await supabase
+          .from('user_subscriptions')
+          .select('*')
+          .eq('user_id', user.id)
           .single();
-
-        if (subError) throw subError;
-
-        // Get note count
-        const { count: notesCount, error: notesError } = await supabase
-          .from("notes")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("is_trashed", false);
-
-        if (notesError) throw notesError;
-
-        // Get folder count
-        const { count: foldersCount, error: foldersError } = await supabase
-          .from("folders")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id);
-
-        if (foldersError) throw foldersError;
-
+        
+        if (subscriptionError) {
+          console.error('Error fetching subscription:', subscriptionError);
+          return;
+        }
+        
         setSubscription(subscriptionData);
-        setNotesCount(notesCount || 0);
-        setFoldersCount(foldersCount || 0);
-      } catch (error: any) {
-        console.error("Error fetching subscription:", error);
-        toast({
-          title: "Error fetching subscription",
-          description: error.message,
-          variant: "destructive",
-        });
+        
+        // Count active notes (not in trash)
+        const { data: notes, error: notesError } = await supabase
+          .from('notes')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_trashed', false);
+        
+        if (!notesError) {
+          setNotesCount(notes?.length || 0);
+        }
+        
+        // Count folders
+        const { data: folders, error: foldersError } = await supabase
+          .from('folders')
+          .select('id')
+          .eq('user_id', user.id);
+        
+        if (!foldersError) {
+          setFoldersCount(folders?.length || 0);
+        }
+      } catch (error) {
+        console.error('Error in usePlan hook:', error);
       } finally {
         setIsLoading(false);
       }
-    };
-
-    fetchSubscription();
+    }
+    
+    fetchSubscriptionData();
   }, [user]);
-
-  const isPremium = subscription?.plan === "premium" && subscription?.status === "active";
-  const notesLimit = isPremium ? Infinity : 10;
-  const foldersLimit = isPremium ? Infinity : 5;
-  const notesRemaining = Math.max(0, notesLimit - notesCount);
-  const foldersRemaining = Math.max(0, foldersLimit - foldersCount);
-  const isNearNotesLimit = !isPremium && notesRemaining <= 2 && notesRemaining > 0;
-  const isNearFoldersLimit = !isPremium && foldersRemaining <= 1 && foldersRemaining > 0;
-  const isAtNotesLimit = !isPremium && notesRemaining === 0;
-  const isAtFoldersLimit = !isPremium && foldersRemaining === 0;
-
+  
+  const isPremium = subscription?.plan === 'premium' && subscription?.status === 'active';
+  
+  // Calculate remaining items for free plan
+  const notesRemaining = Math.max(0, FREE_NOTES_LIMIT - notesCount);
+  const foldersRemaining = Math.max(0, FREE_FOLDERS_LIMIT - foldersCount);
+  
   return {
-    subscription,
-    isLoading,
     isPremium,
-    notesCount,
-    foldersCount,
-    notesLimit,
-    foldersLimit,
+    isLoading,
+    subscription,
+    notesLimit: isPremium ? Infinity : FREE_NOTES_LIMIT,
+    foldersLimit: isPremium ? Infinity : FREE_FOLDERS_LIMIT,
     notesRemaining,
-    foldersRemaining,
-    isNearNotesLimit,
-    isNearFoldersLimit,
-    isAtNotesLimit,
-    isAtFoldersLimit,
+    foldersRemaining
   };
-};
+}
+
+export default usePlan;
