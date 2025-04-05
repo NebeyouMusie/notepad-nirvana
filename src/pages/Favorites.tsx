@@ -2,8 +2,7 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { NoteGrid } from "@/components/notes/NoteGrid";
-import { fetchNotes } from "@/services/noteService";
-import { Note } from "@/types";
+import { fetchNotes, Note } from "@/services/noteService";
 import { motion } from "framer-motion";
 import { Loader2, Star } from "lucide-react";
 

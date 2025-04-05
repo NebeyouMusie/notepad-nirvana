@@ -5,10 +5,9 @@ import { NoteEditor } from "@/components/notes/NoteEditor";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
-import { fetchNote } from "@/services/noteService";
+import { getNote } from "@/services/noteService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchFolders } from "@/services/folderService";
-import { Note } from "@/types";
 
 export default function Editor() {
   const { id } = useParams();
@@ -16,7 +15,7 @@ export default function Editor() {
   const location = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [note, setNote] = useState<Note | null>(null);
+  const [note, setNote] = useState<any>(null);
   const [folders, setFolders] = useState<any[]>([]);
 
   // Extract folderId from location state if present
@@ -29,7 +28,7 @@ export default function Editor() {
       if (isNewNote) return;
       
       setIsLoading(true);
-      const noteData = await fetchNote(id!);
+      const noteData = await getNote(id!);
       setNote(noteData);
       setIsLoading(false);
       
@@ -52,13 +51,13 @@ export default function Editor() {
     loadFolders();
   }, [id, navigate]);
   
-  const handleSave = (savedNote: Note) => {
+  const handleSave = (noteId: string) => {
     if (isNewNote) {
       toast({
         title: "Note created",
         description: "Your new note has been saved",
       });
-      navigate(`/notes/${savedNote.id}`);
+      navigate(`/notes/${noteId}`);
     } else {
       toast({
         title: "Note updated",
@@ -83,6 +82,11 @@ export default function Editor() {
     );
   }
 
+  // Find folder name if available
+  const currentFolderName = folders.find(folder => 
+    folder.id === (isNewNote ? folderId : note?.folderId)
+  )?.name || '';
+
   return (
     <AppLayout>
       <motion.div
@@ -91,7 +95,17 @@ export default function Editor() {
         transition={{ duration: 0.3 }}
         className="max-w-3xl mx-auto h-[calc(100vh-12rem)]"
       >
-        <NoteEditor onSave={handleSave} />
+        <NoteEditor
+          noteId={isNewNote ? undefined : id}
+          initialTitle={isNewNote ? "" : note?.title || ""}
+          initialContent={isNewNote ? "" : note?.content || ""}
+          initialTags={isNewNote ? [] : note?.tags || []}
+          initialColor={isNewNote ? "#FFFFFF" : note?.color || "#FFFFFF"}
+          initialFolderId={isNewNote ? folderId : note?.folderId}
+          currentFolderName={currentFolderName}
+          folders={folders}
+          onSave={handleSave}
+        />
       </motion.div>
     </AppLayout>
   );

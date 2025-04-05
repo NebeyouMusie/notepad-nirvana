@@ -1,274 +1,360 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { Note } from "@/types";
 import { toast } from "@/hooks/use-toast";
 
-// Helper function to handle errors
-const handleServiceError = (error: any, message: string) => {
-  console.error(message, error);
-  throw new Error(error.message || message);
-};
+export interface Note {
+  id: string;
+  title: string;
+  content: string | null;
+  color: string;
+  tags: string[];
+  is_favorite: boolean;
+  is_archived: boolean;
+  is_trashed: boolean;
+  trashed_at: string | null;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+}
 
-// Function to fetch all notes for a user
-export const fetchNotes = async (filters?: { favorite?: boolean, archived?: boolean, trashed?: boolean, folderId?: string }): Promise<Note[]> => {
+export type NoteInput = Omit<Note, 'id' | 'created_at' | 'updated_at' | 'user_id'>;
+
+// Fetch all notes for the current user
+export async function fetchNotes(options: { 
+  archived?: boolean;
+  trashed?: boolean;
+  favorite?: boolean;
+  folderId?: string;
+} = {}) {
   try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to fetch notes");
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to view notes",
+        variant: "destructive",
+      });
+      return [];
     }
-
+    
     let query = supabase
       .from('notes')
       .select('*')
-      .eq('user_id', userId);
-      
-    // Apply filters
-    if (filters?.favorite) {
+      .eq('is_archived', options.archived ?? false)
+      .eq('is_trashed', options.trashed ?? false);
+    
+    if (options.favorite) {
       query = query.eq('is_favorite', true);
     }
     
-    if (filters?.archived) {
-      query = query.eq('is_archived', true);
-    }
-    
-    if (filters?.trashed) {
-      query = query.eq('is_trashed', true);
-    } else {
-      query = query.eq('is_trashed', false);
-    }
-    
-    // If folderId is provided, get notes from that folder
-    if (filters?.folderId) {
-      const { data: folderNotesIds } = await supabase
+    // If folder ID is provided, fetch notes in that folder
+    if (options.folderId) {
+      const { data: noteIds } = await supabase
         .from('notes_folders')
         .select('note_id')
-        .eq('folder_id', filters.folderId);
+        .eq('folder_id', options.folderId);
       
-      if (folderNotesIds && folderNotesIds.length > 0) {
-        const noteIds = folderNotesIds.map(item => item.note_id);
-        query = query.in('id', noteIds);
+      if (noteIds && noteIds.length > 0) {
+        query = query.in('id', noteIds.map(row => row.note_id));
       } else {
-        // If no notes in this folder, return empty array
-        return [];
+        return []; // No notes in this folder
       }
     }
     
-    const { data, error } = await query.order('created_at', { ascending: false });
-
-    if (error) {
-      return handleServiceError(error, "Error fetching notes");
-    }
-
+    const { data, error } = await query.order('updated_at', { ascending: false });
+    
+    if (error) throw error;
     return data || [];
   } catch (error: any) {
-    handleServiceError(error, "Error fetching notes");
+    toast({
+      title: "Error fetching notes",
+      description: error.message,
+      variant: "destructive",
+    });
     return [];
   }
-};
+}
 
-// Function to fetch a single note by ID
-export const fetchNote = async (id: string): Promise<Note | null> => {
+// Create a new note
+export async function createNote(note: Partial<NoteInput>) {
   try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to fetch notes");
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to create notes",
+        variant: "destructive",
+      });
+      return null;
     }
+    
+    // Ensure title is not undefined and is a string
+    const title = note.title && note.title.trim() !== "" ? note.title : "Untitled";
+    
+    const noteData = {
+      ...note,
+      title, // Use the non-optional title
+      user_id: session.user.id
+    };
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .insert(noteData)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error: any) {
+    toast({
+      title: "Error creating note",
+      description: error.message,
+      variant: "destructive",
+    });
+    return null;
+  }
+}
 
+// Update an existing note
+export async function updateNote(id: string, updates: Partial<NoteInput>) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to update notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error: any) {
+    toast({
+      title: "Error updating note",
+      description: error.message,
+      variant: "destructive",
+    });
+    return null;
+  }
+}
+
+// Get a single note by ID
+export async function getNote(id: string) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to view notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('notes')
       .select('*')
       .eq('id', id)
-      .eq('user_id', userId)
       .single();
-
-    if (error) {
-      return handleServiceError(error, `Error fetching note with ID: ${id}`);
-    }
-
-    return data || null;
-  } catch (error: any) {
-    handleServiceError(error, `Error fetching note with ID: ${id}`);
-    return null;
-  }
-};
-
-// Alias for fetchNote for better naming consistency
-export const getNote = fetchNote;
-
-// Function to create a new note
-export const createNote = async (noteData: Partial<Note>): Promise<Note | null> => {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.session?.user?.id;
     
-    if (!userId) {
-      throw new Error("You must be authenticated to create notes.");
-    }
+    if (error) throw error;
     
-    // Check if user can create more notes (free plan limit)
-    const { data: canCreate } = await supabase.rpc('check_user_limits', {
-      p_user_id: userId,
-      p_check_type: 'note'
-    });
-    
-    // If user has reached the limit
-    if (canCreate === false) {
-      throw new Error("You've reached your notes limit. Please upgrade to create more notes.");
-    }
-
-    const newNote = {
-      ...noteData,
-      user_id: userId,
-      title: noteData.title || "Untitled",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from('notes')
-      .insert(newNote)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Error creating note:", error);
-      throw error;
-    }
-
     return data;
-  } catch (error) {
-    console.error("Error in createNote:", error);
-    throw error;
-  }
-};
-
-// Function to update an existing note
-export const updateNote = async (id: string, noteData: Partial<Note>): Promise<Note | null> => {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to update notes");
-    }
-
-    const { data, error } = await supabase
-      .from('notes')
-      .update({
-        ...noteData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (error) {
-      return handleServiceError(error, `Error updating note with ID: ${id}`);
-    }
-
-    return data || null;
   } catch (error: any) {
-    handleServiceError(error, `Error updating note with ID: ${id}`);
+    toast({
+      title: "Error fetching note",
+      description: error.message,
+      variant: "destructive",
+    });
     return null;
   }
-};
+}
 
-// Function to delete a note
-export const deleteNote = async (id: string): Promise<boolean> => {
+// Delete a note permanently
+export async function deleteNote(id: string) {
   try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to delete notes");
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to delete notes",
+        variant: "destructive",
+      });
+      return false;
     }
-
+    
     const { error } = await supabase
       .from('notes')
       .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
-
-    if (error) {
-      return handleServiceError(error, `Error deleting note with ID: ${id}`);
-    }
-
+      .eq('id', id);
+    
+    if (error) throw error;
+    
     return true;
   } catch (error: any) {
-    handleServiceError(error, `Error deleting note with ID: ${id}`);
+    toast({
+      title: "Error deleting note",
+      description: error.message,
+      variant: "destructive",
+    });
     return false;
   }
-};
+}
 
-// Function to toggle favorite status
-export const toggleFavorite = async (id: string, isFavorite: boolean): Promise<Note | null> => {
-  return updateNote(id, { is_favorite: isFavorite });
-};
-
-// Function to toggle archived status
-export const toggleArchived = async (id: string, isArchived: boolean): Promise<Note | null> => {
-  return updateNote(id, { is_archived: isArchived });
-};
-
-// Function to trash a note
-export const trashNote = async (id: string): Promise<Note | null> => {
+// Move a note to trash
+export async function trashNote(id: string) {
   try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to trash notes");
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to trash notes",
+        variant: "destructive",
+      });
+      return null;
     }
-
+    
     const { data, error } = await supabase
       .from('notes')
-      .update({ is_trashed: true, trashed_at: new Date().toISOString() })
+      .update({ 
+        is_trashed: true, 
+        trashed_at: new Date().toISOString() 
+      })
       .eq('id', id)
-      .eq('user_id', userId)
       .select()
       .single();
-
-    if (error) {
-      return handleServiceError(error, `Error trashing note with ID: ${id}`);
-    }
-
-    return data || null;
+    
+    if (error) throw error;
+    
+    return data;
   } catch (error: any) {
-    handleServiceError(error, `Error trashing note with ID: ${id}`);
+    toast({
+      title: "Error trashing note",
+      description: error.message,
+      variant: "destructive",
+    });
     return null;
   }
-};
+}
 
-// Function to restore a note from trash
-export const restoreNote = async (id: string): Promise<Note | null> => {
+// Restore a note from trash
+export async function restoreNote(id: string) {
   try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to restore notes");
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to restore notes",
+        variant: "destructive",
+      });
+      return null;
     }
-
+    
     const { data, error } = await supabase
       .from('notes')
-      .update({ is_trashed: false, trashed_at: null })
+      .update({ 
+        is_trashed: false, 
+        trashed_at: null 
+      })
       .eq('id', id)
-      .eq('user_id', userId)
       .select()
       .single();
-
-    if (error) {
-      return handleServiceError(error, `Error restoring note with ID: ${id}`);
-    }
-
-    return data || null;
+    
+    if (error) throw error;
+    
+    return data;
   } catch (error: any) {
-    handleServiceError(error, `Error restoring note with ID: ${id}`);
+    toast({
+      title: "Error restoring note",
+      description: error.message,
+      variant: "destructive",
+    });
     return null;
   }
-};
+}
+
+// Toggle favorite status
+export async function toggleFavorite(id: string, isFavorite: boolean) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to update notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .update({ is_favorite: isFavorite })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error: any) {
+    toast({
+      title: "Error updating note",
+      description: error.message,
+      variant: "destructive",
+    });
+    return null;
+  }
+}
+
+// Toggle archived status
+export async function toggleArchived(id: string, isArchived: boolean) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to update notes",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    const { data, error } = await supabase
+      .from('notes')
+      .update({ is_archived: isArchived })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error: any) {
+    toast({
+      title: "Error updating note",
+      description: error.message,
+      variant: "destructive",
+    });
+    return null;
+  }
+}

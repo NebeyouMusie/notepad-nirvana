@@ -1,113 +1,132 @@
 
-import React, { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Skeleton } from "@/components/ui/skeleton";
 import { 
+  Bold, 
+  Italic, 
+  List, 
+  ListOrdered, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight, 
+  Heading1, 
+  Heading2,
+  Hash,
+  FolderOpen,
+  Save
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { createNote, updateNote, NoteInput } from "@/services/noteService";
+import { toast } from "@/hooks/use-toast";
+import { addNoteToFolder, fetchFolders, Folder, getNotesFolders } from "@/services/folderService";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import TextAlign from '@tiptap/extension-text-align';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { toast } from "@/hooks/use-toast";
-import { Note } from "@/types";
-import { fetchNote, createNote, updateNote, deleteNote } from "@/services/noteService";
-import { fetchFolders } from "@/services/folderService";
-import { addNoteToFolder, removeNoteFromFolder } from "@/services/notesFoldersService";
-import { 
-  Save, 
-  MoreVertical, 
-  Trash, 
-  Star, 
-  Archive, 
-  FolderPlus,
-  StarOff,
-  ArchiveRestore,
-  Sparkles
-} from "lucide-react";
-import { usePlan } from "@/hooks/usePlan";
-import { Link } from "react-router-dom";
 
-export interface NoteEditorProps {
-  onSave?: (note: Note) => void;
+interface NoteEditorProps {
+  initialContent?: string;
+  initialTitle?: string;
+  initialTags?: string[];
+  initialColor?: string;
+  noteId?: string;
+  onSave?: (id: string) => void;
+  initialFolderId?: string;
+  currentFolderName?: string;
+  folders?: Folder[];
 }
 
-export function NoteEditor({ onSave }: NoteEditorProps) {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [note, setNote] = useState<Note | null>(null);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+export function NoteEditor({ 
+  initialContent = "", 
+  initialTitle = "Untitled", 
+  initialTags = [],
+  initialColor = "#FFFFFF",
+  noteId,
+  onSave,
+  initialFolderId,
+  currentFolderName = "",
+  folders = []
+}: NoteEditorProps) {
+  const [title, setTitle] = useState(initialTitle);
+  const [color, setColor] = useState(initialColor);
+  const [tags, setTags] = useState<string[]>(initialTags);
+  const [newTag, setNewTag] = useState("");
+  const [wordCount, setWordCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isFolderDialogOpen, setIsFolderDialogOpen] = useState(false);
-  const [folders, setFolders] = useState<any[]>([]);
-  const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
-  const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
-  const { isPremium, isAtNotesLimit } = usePlan();
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(initialFolderId || null);
+  const [foldersList, setFoldersList] = useState<Folder[]>(folders);
+  const [isAlreadyInFolder, setIsAlreadyInFolder] = useState<boolean>(false);
+  
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right'],
+      }),
+    ],
+    content: initialContent,
+    onUpdate: ({ editor }) => {
+      calculateWordCount(editor.getText());
+    },
+  });
 
-  // Load note data
   useEffect(() => {
-    const loadNote = async () => {
-      if (id && id !== "new") {
-        setIsLoading(true);
-        try {
-          const noteData = await fetchNote(id);
-          if (noteData) {
-            setNote(noteData);
-            setTitle(noteData.title);
-            setContent(noteData.content || "");
-            
-            // Load folders for this note
-            const allFolders = await fetchFolders();
-            setFolders(allFolders);
-            
-            // For now, just load all folders
-            // In a real app, you would fetch which folders this note belongs to
-            const noteFolderIds: string[] = []; // This would normally be populated from an API call
-            setSelectedFolders(noteFolderIds);
-          }
-        } catch (error) {
-          console.error("Error loading note:", error);
-          toast({
-            title: "Error",
-            description: "Failed to load note",
-            variant: "destructive",
-          });
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
-        // Load folders for new note
-        const loadFolders = async () => {
-          try {
-            const allFolders = await fetchFolders();
-            setFolders(allFolders);
-          } catch (error) {
-            console.error("Error loading folders:", error);
-          }
-        };
-        
-        loadFolders();
+    if (editor && initialContent && !editor.isEmpty) {
+      editor.commands.setContent(initialContent);
+    }
+  }, [editor, initialContent]);
+
+  useEffect(() => {
+    if (editor) {
+      calculateWordCount(editor.getText());
+    }
+    
+    // Load folders only if none were passed in props
+    if (folders.length === 0) {
+      const loadFolders = async () => {
+        const foldersData = await fetchFolders();
+        setFoldersList(foldersData);
+      };
+      
+      loadFolders();
+    } else {
+      setFoldersList(folders);
+    }
+
+    // Check if the note is already in the selected folder
+    const checkFolderAssociation = async () => {
+      if (noteId && selectedFolderId) {
+        const noteFolders = await getNotesFolders(noteId);
+        const isInFolder = noteFolders.some(folder => folder.id === selectedFolderId);
+        setIsAlreadyInFolder(isInFolder);
       }
     };
-    
-    loadNote();
-  }, [id]);
+
+    if (noteId && selectedFolderId) {
+      checkFolderAssociation();
+    }
+  }, [editor, folders, noteId, selectedFolderId]);
+
+  // Update selectedFolderId when initialFolderId changes
+  useEffect(() => {
+    if (initialFolderId) {
+      setSelectedFolderId(initialFolderId);
+    }
+  }, [initialFolderId]);
+
+  const calculateWordCount = (text: string) => {
+    setWordCount(text.trim() === "" ? 0 : text.trim().split(/\s+/).length);
+  };
 
   const handleSave = async () => {
-    if (!title.trim()) {
+    if (title.trim() === "") {
       toast({
         title: "Error",
         description: "Title cannot be empty",
@@ -119,384 +138,292 @@ export function NoteEditor({ onSave }: NoteEditorProps) {
     setIsSaving(true);
     
     try {
-      let savedNote: Note | null = null;
+      const content = editor ? editor.getHTML() : "";
       
-      if (id && id !== "new" && note) {
+      const noteData: Partial<NoteInput> = {
+        title,
+        content,
+        color,
+        tags
+      };
+      
+      let savedNote;
+      
+      if (noteId) {
         // Update existing note
-        savedNote = await updateNote(id, {
-          title,
-          content,
-        });
+        savedNote = await updateNote(noteId, noteData);
       } else {
         // Create new note
-        try {
-          savedNote = await createNote({
-            title,
-            content,
-          });
-        } catch (error: any) {
-          // Check if this is a plan limit error
-          if (error.message?.includes("limit")) {
-            setIsUpgradeDialogOpen(true);
-            return;
-          }
-          throw error;
-        }
+        savedNote = await createNote(noteData);
       }
       
       if (savedNote) {
-        // Handle folder assignments
-        if (id && id !== "new") {
-          // Get current folders
-          const currentFolders = folders
-            .filter(folder => folder.notes?.some((note: any) => note.id === id))
-            .map(folder => folder.id);
-          
-          // Folders to add
-          const foldersToAdd = selectedFolders.filter(
-            folderId => !currentFolders.includes(folderId)
-          );
-          
-          // Folders to remove
-          const foldersToRemove = currentFolders.filter(
-            folderId => !selectedFolders.includes(folderId)
-          );
-          
-          // Add note to new folders
-          for (const folderId of foldersToAdd) {
-            await addNoteToFolder(savedNote.id, folderId);
+        // If there's a selected folder and the note is not already in that folder, add it
+        if (selectedFolderId && !isAlreadyInFolder) {
+          try {
+            await addNoteToFolder(savedNote.id, selectedFolderId);
+            // Update isAlreadyInFolder after successfully adding note to folder
+            setIsAlreadyInFolder(true);
+          } catch (error) {
+            // Error is handled in addNoteToFolder function
           }
-          
-          // Remove note from unselected folders
-          for (const folderId of foldersToRemove) {
-            await removeNoteFromFolder(savedNote.id, folderId);
-          }
-        } else {
-          // For new notes, add to all selected folders
-          for (const folderId of selectedFolders) {
-            await addNoteToFolder(savedNote.id, folderId);
-          }
-          
-          // Navigate to the new note
-          navigate(`/notes/${savedNote.id}`);
         }
         
-        setNote(savedNote);
-        
-        if (onSave) {
-          onSave(savedNote);
-        }
-        
+        setLastSaved(new Date());
         toast({
-          title: "Success",
-          description: "Note saved successfully",
+          title: noteId ? "Note updated" : "Note created",
+          description: noteId ? "Your changes have been saved" : "Your new note has been saved",
         });
+        if (onSave && savedNote.id) {
+          onSave(savedNote.id);
+        }
       }
-    } catch (error) {
-      console.error("Error saving note:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save note",
-        variant: "destructive",
-      });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!id) return;
-    
-    try {
-      await deleteNote(id);
-      toast({
-        title: "Success",
-        description: "Note moved to trash",
-      });
-      navigate("/");
-    } catch (error) {
-      console.error("Error deleting note:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete note",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleteDialogOpen(false);
+  const addTag = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newTag.trim() !== "" && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()]);
+      setNewTag("");
     }
   };
 
-  const toggleFavorite = async () => {
-    if (!id || !note) return;
-    
-    try {
-      const updatedNote = await updateNote(id, {
-        is_favorite: !note.is_favorite,
-      });
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const selectFolder = async (folderId: string) => {
+    // Check if note is already in this folder
+    if (noteId) {
+      const noteFolders = await getNotesFolders(noteId);
+      const isInFolder = noteFolders.some(folder => folder.id === folderId);
       
-      if (updatedNote) {
-        setNote(updatedNote);
-        toast({
-          title: updatedNote.is_favorite ? "Added to favorites" : "Removed from favorites",
-          description: updatedNote.is_favorite 
-            ? "Note added to favorites" 
-            : "Note removed from favorites",
-        });
+      if (isInFolder) {
+        setIsAlreadyInFolder(true);
+        setSelectedFolderId(folderId);
+        return;
       }
-    } catch (error) {
-      console.error("Error toggling favorite:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update note",
-        variant: "destructive",
-      });
     }
-  };
-
-  const toggleArchive = async () => {
-    if (!id || !note) return;
     
-    try {
-      const updatedNote = await updateNote(id, {
-        is_archived: !note.is_archived,
-      });
-      
-      if (updatedNote) {
-        setNote(updatedNote);
-        toast({
-          title: updatedNote.is_archived ? "Archived" : "Unarchived",
-          description: updatedNote.is_archived 
-            ? "Note moved to archive" 
-            : "Note removed from archive",
-        });
-      }
-    } catch (error) {
-      console.error("Error toggling archive:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update note",
-        variant: "destructive",
-      });
-    }
+    setIsAlreadyInFolder(false);
+    setSelectedFolderId(folderId);
   };
 
-  const handleFolderSelection = (folderId: string) => {
-    setSelectedFolders(prev => 
-      prev.includes(folderId)
-        ? prev.filter(id => id !== folderId)
-        : [...prev, folderId]
-    );
-  };
-
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="p-4 space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-[60vh] w-full" />
-      </div>
-    );
-  }
+  // Color options
+  const colorOptions = [
+    "#FFFFFF", // White
+    "#F8D7DA", // Light Red
+    "#D1E7DD", // Light Green
+    "#CFF4FC", // Light Blue
+    "#FFF3CD", // Light Yellow
+    "#E2E3E5", // Light Gray
+    "#D7D8F8", // Light Purple
+  ];
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b">
-        <Input
+      <div className="border-b pb-2 mb-4">
+        <input
+          type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Untitled Note"
-          className="text-xl font-medium border-none shadow-none focus-visible:ring-0"
+          className="w-full text-2xl font-medium bg-transparent border-none outline-none focus:ring-0 p-0"
+          placeholder="Untitled"
         />
-        
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Saving..." : "Save"}
-          </Button>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={toggleFavorite}>
-                {note?.is_favorite ? (
-                  <>
-                    <StarOff className="h-4 w-4 mr-2" />
-                    Remove from Favorites
-                  </>
-                ) : (
-                  <>
-                    <Star className="h-4 w-4 mr-2" />
-                    Add to Favorites
-                  </>
-                )}
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={toggleArchive}>
-                {note?.is_archived ? (
-                  <>
-                    <ArchiveRestore className="h-4 w-4 mr-2" />
-                    Unarchive
-                  </>
-                ) : (
-                  <>
-                    <Archive className="h-4 w-4 mr-2" />
-                    Archive
-                  </>
-                )}
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => setIsFolderDialogOpen(true)}>
-                <FolderPlus className="h-4 w-4 mr-2" />
-                Manage Folders
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem 
-                onClick={() => setIsDeleteDialogOpen(true)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash className="h-4 w-4 mr-2" />
-                Move to Trash
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+      </div>
+      
+      <div className="glassmorphism rounded-lg p-1 mb-4 flex flex-wrap gap-1">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive('bold') ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().toggleBold().run()}
+          disabled={!editor?.can().chain().focus().toggleBold().run()}
+        >
+          <Bold size={16} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive('italic') ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().toggleItalic().run()}
+          disabled={!editor?.can().chain().focus().toggleItalic().run()}
+        >
+          <Italic size={16} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive('bulletList') ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().toggleBulletList().run()}
+          disabled={!editor?.can().chain().focus().toggleBulletList().run()}
+        >
+          <List size={16} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive('orderedList') ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+          disabled={!editor?.can().chain().focus().toggleOrderedList().run()}
+        >
+          <ListOrdered size={16} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive('heading', { level: 1 }) ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+          disabled={!editor?.can().chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          <Heading1 size={16} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive('heading', { level: 2 }) ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+          disabled={!editor?.can().chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          <Heading2 size={16} />
+        </Button>
+        <div className="flex-1"></div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive({ textAlign: 'left' }) ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().setTextAlign('left').run()}
+          disabled={!editor?.can().chain().focus().setTextAlign('left').run()}
+        >
+          <AlignLeft size={16} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive({ textAlign: 'center' }) ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().setTextAlign('center').run()}
+          disabled={!editor?.can().chain().focus().setTextAlign('center').run()}
+        >
+          <AlignCenter size={16} />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className={`h-8 w-8 ${editor?.isActive({ textAlign: 'right' }) ? 'bg-primary/20' : ''}`}
+          onClick={() => editor?.chain().focus().setTextAlign('right').run()}
+          disabled={!editor?.can().chain().focus().setTextAlign('right').run()}
+        >
+          <AlignRight size={16} />
+        </Button>
+      </div>
+      
+      <div className="glassmorphism rounded-lg p-3 mb-4">
+        <div className="mb-2 text-sm font-medium">Note Color</div>
+        <div className="flex flex-wrap gap-2">
+          {colorOptions.map((colorOption) => (
+            <button
+              key={colorOption}
+              className={`w-6 h-6 rounded-full border ${
+                color === colorOption ? 'ring-2 ring-primary ring-offset-2' : 'border-gray-300'
+              }`}
+              style={{ backgroundColor: colorOption }}
+              onClick={() => setColor(colorOption)}
+              aria-label={`Select ${colorOption} color`}
+            />
+          ))}
         </div>
       </div>
       
-      <div className="flex-1 p-4">
-        <Textarea
-          value={content}
-          onChange={handleContentChange}
-          placeholder="Start writing your note here..."
-          className="w-full h-full min-h-[60vh] resize-none focus-visible:ring-0 border rounded-md p-4"
-        />
+      <div className="glassmorphism rounded-lg p-3 mb-4">
+        <div className="mb-2 text-sm font-medium">Tags</div>
+        <form onSubmit={addTag} className="flex mb-2">
+          <Input
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            placeholder="Add a tag..."
+            className="flex-1 mr-2"
+          />
+          <Button type="submit" size="sm" variant="outline">
+            <Hash size={16} />
+            Add
+          </Button>
+        </form>
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {tags.map((tag) => (
+              <div
+                key={tag}
+                className="bg-secondary text-secondary-foreground px-2 py-1 rounded-full text-xs flex items-center"
+              >
+                {tag}
+                <button
+                  onClick={() => removeTag(tag)}
+                  className="ml-1 text-muted-foreground hover:text-foreground"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Are you sure?</DialogTitle>
-            <DialogDescription>
-              This will move the note to trash. You can restore it later from the trash.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
+      {/* Folder Selection */}
+      <div className="glassmorphism rounded-lg p-3 mb-4">
+        <div className="mb-2 text-sm font-medium">Folder</div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full justify-start">
+              <FolderOpen className="mr-2 h-4 w-4" />
+              {selectedFolderId 
+                ? foldersList.find(f => f.id === selectedFolderId)?.name || currentFolderName || 'Select Folder'
+                : currentFolderName || 'Select Folder'}
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              Move to Trash
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Folder Selection Dialog */}
-      <Dialog open={isFolderDialogOpen} onOpenChange={setIsFolderDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manage Folders</DialogTitle>
-            <DialogDescription>
-              Select the folders where you want to save this note.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="max-h-[300px] overflow-y-auto py-4">
-            {folders.length === 0 ? (
-              <p className="text-center text-muted-foreground">No folders found</p>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56">
+            {foldersList.length > 0 ? (
+              foldersList.map((folder) => (
+                <DropdownMenuItem 
+                  key={folder.id}
+                  onClick={() => selectFolder(folder.id)}
+                >
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  {folder.name}
+                </DropdownMenuItem>
+              ))
             ) : (
-              <div className="space-y-2">
-                {folders.map((folder) => (
-                  <div key={folder.id} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`folder-${folder.id}`}
-                      checked={selectedFolders.includes(folder.id)}
-                      onChange={() => handleFolderSelection(folder.id)}
-                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                    />
-                    <label htmlFor={`folder-${folder.id}`} className="text-sm font-medium">
-                      {folder.name}
-                    </label>
-                  </div>
-                ))}
-              </div>
+              <DropdownMenuItem disabled>No folders available</DropdownMenuItem>
             )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {isAlreadyInFolder && selectedFolderId && (
+          <div className="mt-2 text-xs text-muted-foreground">
+            This note is already in this folder
           </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsFolderDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => setIsFolderDialogOpen(false)}>
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
       
-      {/* Upgrade Dialog */}
-      <Dialog open={isUpgradeDialogOpen} onOpenChange={setIsUpgradeDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-yellow-500" />
-              Upgrade to Premium
-            </DialogTitle>
-            <DialogDescription>
-              You've reached the maximum number of notes on the free plan.
-              Upgrade to Premium for unlimited notes and more features.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            <div className="rounded-lg bg-muted p-4">
-              <h4 className="font-medium mb-2">Premium Benefits:</h4>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">✓</span>
-                  <span>Unlimited notes</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">✓</span>
-                  <span>Unlimited folders</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">✓</span>
-                  <span>Priority support</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-          
-          <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsUpgradeDialogOpen(false)}
-              className="sm:order-1"
-            >
-              Not Now
-            </Button>
-            <Button asChild className="w-full sm:w-auto">
-              <Link to="/upgrade">
-                Upgrade to Premium
-              </Link>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <div className="flex-1 relative note-content-editor">
+        <EditorContent editor={editor} className="w-full h-full prose prose-sm max-w-none" />
+      </div>
+      
+      <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground">
+        <div>{wordCount} words</div>
+        <div className="flex items-center gap-2">
+          <span>
+            {lastSaved 
+              ? `Last saved ${lastSaved.toLocaleTimeString()}` 
+              : "Not saved yet"}
+          </span>
+          <Button size="sm" onClick={handleSave} disabled={isSaving} className="flex items-center gap-1">
+            <Save size={14} />
+            {isSaving ? "Saving..." : "Save"}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
