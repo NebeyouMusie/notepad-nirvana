@@ -74,7 +74,7 @@ serve(async (req) => {
       customer: customerId,
       line_items: [
         {
-          price: priceId, // Use the product ID passed from the client
+          price: priceId,
           quantity: 1,
         },
       ],

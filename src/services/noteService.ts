@@ -1,5 +1,7 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Note } from "@/types";
+import { toast } from "@/hooks/use-toast";
 
 // Helper function to handle errors
 const handleServiceError = (error: any, message: string) => {
@@ -8,21 +10,36 @@ const handleServiceError = (error: any, message: string) => {
 };
 
 // Function to fetch all notes for a user
-export const fetchNotes = async (): Promise<Note[]> => {
+export const fetchNotes = async (filters?: { favorite?: boolean, archived?: boolean, trashed?: boolean }): Promise<Note[]> => {
   try {
     const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = session?.session?.user?.id;
 
     if (!userId) {
       throw new Error("You must be logged in to fetch notes");
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('notes')
       .select('*')
-      .eq('user_id', userId)
-      .eq('is_trashed', false)
-      .order('created_at', { ascending: false });
+      .eq('user_id', userId);
+      
+    // Apply filters
+    if (filters?.favorite) {
+      query = query.eq('is_favorite', true);
+    }
+    
+    if (filters?.archived) {
+      query = query.eq('is_archived', true);
+    }
+    
+    if (filters?.trashed) {
+      query = query.eq('is_trashed', true);
+    } else {
+      query = query.eq('is_trashed', false);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       return handleServiceError(error, "Error fetching notes");
@@ -39,7 +56,7 @@ export const fetchNotes = async (): Promise<Note[]> => {
 export const fetchNoteById = async (id: string): Promise<Note | null> => {
   try {
     const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = session?.session?.user?.id;
 
     if (!userId) {
       throw new Error("You must be logged in to fetch notes");
@@ -63,17 +80,22 @@ export const fetchNoteById = async (id: string): Promise<Note | null> => {
   }
 };
 
+// Alias for fetchNoteById for better naming consistency
+export const getNote = fetchNoteById;
+
 // Function to create a new note
 export const createNote = async (noteData: Partial<Note>): Promise<Note | null> => {
   try {
-    const { user } = await supabase.auth.getSession();
-    if (!user?.user?.id) {
+    const { data: session } = await supabase.auth.getSession();
+    const userId = session?.session?.user?.id;
+    
+    if (!userId) {
       throw new Error("You must be authenticated to create notes.");
     }
     
     // Check if user can create more notes (free plan limit)
     const { data: canCreate } = await supabase.rpc('check_user_limits', {
-      p_user_id: user.user.id,
+      p_user_id: userId,
       p_check_type: 'note'
     });
     
@@ -87,7 +109,7 @@ export const createNote = async (noteData: Partial<Note>): Promise<Note | null> 
       .insert([
         {
           ...noteData,
-          user_id: user.user.id,
+          user_id: userId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -111,7 +133,7 @@ export const createNote = async (noteData: Partial<Note>): Promise<Note | null> 
 export const updateNote = async (id: string, noteData: Partial<Note>): Promise<Note | null> => {
   try {
     const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = session?.session?.user?.id;
 
     if (!userId) {
       throw new Error("You must be logged in to update notes");
@@ -143,7 +165,7 @@ export const updateNote = async (id: string, noteData: Partial<Note>): Promise<N
 export const deleteNote = async (id: string): Promise<boolean> => {
   try {
     const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = session?.session?.user?.id;
 
     if (!userId) {
       throw new Error("You must be logged in to delete notes");
@@ -166,69 +188,21 @@ export const deleteNote = async (id: string): Promise<boolean> => {
   }
 };
 
-// Function to favorite a note
-export const favoriteNote = async (id: string, isFavorite: boolean): Promise<Note | null> => {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to favorite notes");
-    }
-
-    const { data, error } = await supabase
-      .from('notes')
-      .update({ is_favorite: isFavorite })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (error) {
-      return handleServiceError(error, `Error favoriting note with ID: ${id}`);
-    }
-
-    return data || null;
-  } catch (error: any) {
-    handleServiceError(error, `Error favoriting note with ID: ${id}`);
-    return null;
-  }
+// Function to toggle favorite status
+export const toggleFavorite = async (id: string, isFavorite: boolean): Promise<Note | null> => {
+  return updateNote(id, { is_favorite: isFavorite });
 };
 
-// Function to archive a note
-export const archiveNote = async (id: string, isArchived: boolean): Promise<Note | null> => {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to archive notes");
-    }
-
-    const { data, error } = await supabase
-      .from('notes')
-      .update({ is_archived: isArchived })
-      .eq('id', id)
-      .eq('user_id', userId)
-      .select()
-      .single();
-
-    if (error) {
-      return handleServiceError(error, `Error archiving note with ID: ${id}`);
-    }
-
-    return data || null;
-  } catch (error: any) {
-    handleServiceError(error, `Error archiving note with ID: ${id}`);
-    return null;
-  }
+// Function to toggle archived status
+export const toggleArchived = async (id: string, isArchived: boolean): Promise<Note | null> => {
+  return updateNote(id, { is_archived: isArchived });
 };
 
 // Function to trash a note
 export const trashNote = async (id: string): Promise<Note | null> => {
   try {
     const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = session?.session?.user?.id;
 
     if (!userId) {
       throw new Error("You must be logged in to trash notes");
@@ -257,7 +231,7 @@ export const trashNote = async (id: string): Promise<Note | null> => {
 export const restoreNote = async (id: string): Promise<Note | null> => {
   try {
     const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
+    const userId = session?.session?.user?.id;
 
     if (!userId) {
       throw new Error("You must be logged in to restore notes");
@@ -279,118 +253,5 @@ export const restoreNote = async (id: string): Promise<Note | null> => {
   } catch (error: any) {
     handleServiceError(error, `Error restoring note with ID: ${id}`);
     return null;
-  }
-};
-
-// Function to permanently delete a note
-export const permanentlyDeleteNote = async (id: string): Promise<boolean> => {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to permanently delete notes");
-    }
-
-    const { error } = await supabase
-      .from('notes')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
-
-    if (error) {
-      return handleServiceError(error, `Error permanently deleting note with ID: ${id}`);
-    }
-
-    return true;
-  } catch (error: any) {
-    handleServiceError(error, `Error permanently deleting note with ID: ${id}`);
-    return false;
-  }
-};
-
-// Function to fetch trashed notes
-export const fetchTrashedNotes = async (): Promise<Note[]> => {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to fetch trashed notes");
-    }
-
-    const { data, error } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_trashed', true)
-      .order('trashed_at', { ascending: false });
-
-    if (error) {
-      return handleServiceError(error, "Error fetching trashed notes");
-    }
-
-    return data || [];
-  } catch (error: any) {
-    handleServiceError(error, "Error fetching trashed notes");
-    return [];
-  }
-};
-
-// Function to fetch favorite notes
-export const fetchFavoriteNotes = async (): Promise<Note[]> => {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to fetch favorite notes");
-    }
-
-    const { data, error } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_favorite', true)
-      .eq('is_trashed', false)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return handleServiceError(error, "Error fetching favorite notes");
-    }
-
-    return data || [];
-  } catch (error: any) {
-    handleServiceError(error, "Error fetching favorite notes");
-    return [];
-  }
-};
-
-// Function to fetch archived notes
-export const fetchArchivedNotes = async (): Promise<Note[]> => {
-  try {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-
-    if (!userId) {
-      throw new Error("You must be logged in to fetch archived notes");
-    }
-
-    const { data, error } = await supabase
-      .from('notes')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_archived', true)
-       .eq('is_trashed', false)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return handleServiceError(error, "Error fetching archived notes");
-    }
-
-    return data || [];
-  } catch (error: any) {
-    handleServiceError(error, "Error fetching archived notes");
-    return [];
   }
 };

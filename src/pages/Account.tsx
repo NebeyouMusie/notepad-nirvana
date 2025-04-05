@@ -1,270 +1,187 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
-import { usePlan } from "@/hooks/usePlan";
-import { motion } from "framer-motion";
-import { format } from "date-fns";
-import { User, LogOut, AlertTriangle, Sparkles, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
+import { motion } from "framer-motion";
+import { usePlan } from "@/hooks/usePlan";
 import { Link } from "react-router-dom";
+import { ArrowRight, CalendarIcon, CreditCard, Shield, Star, Tag } from "lucide-react";
 
 export default function Account() {
   const { user, signOut } = useAuth();
-  const { subscription, isPremium, notesLimit, foldersLimit, isLoading: planLoading } = usePlan();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  const handleDeleteAccount = async () => {
-    if (confirmText !== user?.email) return;
-    
-    setIsDeleting(true);
-    
-    try {
-      // Delete user data from database
-      // This is just a suggestion - actual implementation would depend on your database structure
-      // You would need to delete all user-related data from your database tables
-      await supabase
-        .from('notes')
-        .delete()
-        .eq('user_id', user?.id);
-        
-      // Delete the user's authentication record
-      const { error } = await supabase.auth.admin.deleteUser(user?.id || '');
-      
-      if (error) throw error;
-      
-      toast({
-        title: "Account deleted",
-        description: "Your account and all associated data have been deleted",
-      });
-      
-      signOut();
-    } catch (error: any) {
-      toast({
-        title: "Error deleting account",
-        description: error.message || "An error occurred while deleting your account",
-        variant: "destructive",
-      });
-      setIsDeleting(false);
-    }
+  const { subscription, isPremium, notesLimit, foldersLimit } = usePlan();
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const handleSignOut = async () => {
+    setIsLoading(true);
+    await signOut();
+    setIsLoading(false);
   };
-
-  // Format subscription end date if available
-  const formattedEndDate = subscription?.current_period_end 
-    ? format(new Date(subscription.current_period_end), 'MMMM d, yyyy') 
-    : null;
+  
+  // Format date for subscription details
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="mb-6"
         >
-          <div className="flex items-center">
-            <User className="mr-2 h-6 w-6" />
-            <h1 className="text-3xl font-semibold">Account</h1>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">Account</h1>
+            <p className="text-muted-foreground">
+              Manage your account settings and subscription
+            </p>
           </div>
-          <p className="text-muted-foreground">
-            Manage your account settings and preferences
-          </p>
-        </motion.div>
-        
-        <div className="space-y-6">
-          <div className="bg-card border rounded-lg p-6">
-            <h2 className="text-xl font-medium mb-4">Profile Information</h2>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                value={user?.email || ""}
-                disabled
-                className="bg-muted"
-              />
-              <p className="text-xs text-muted-foreground">
-                Your email cannot be changed
-              </p>
-            </div>
-          </div>
-          
-          {/* Subscription section */}
-          <div className="bg-card border rounded-lg p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-yellow-500" />
-              <h2 className="text-xl font-medium">Subscription</h2>
-            </div>
-            
-            {planLoading ? (
-              <div className="py-4 text-center text-muted-foreground">
-                Loading subscription information...
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div>
-                    <h3 className="font-medium flex items-center">
-                      {isPremium ? (
-                        <>
-                          <span className="mr-2">Premium Plan</span>
-                          <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">Active</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="mr-2">Free Plan</span>
-                          <span className="text-xs bg-muted-foreground text-background px-2 py-0.5 rounded-full">Basic</span>
-                        </>
-                      )}
-                    </h3>
-                    
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {isPremium 
-                        ? "You have access to all premium features"
-                        : `Limited to ${notesLimit} notes and ${foldersLimit} folders`
-                      }
-                    </p>
-                    
-                    {isPremium && formattedEndDate && (
-                      <div className="flex items-center gap-1 mt-1 text-sm">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>Renews on {formattedEndDate}</span>
-                      </div>
-                    )}
+
+          <div className="grid gap-8">
+            {/* Profile Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">Profile Information</CardTitle>
+                <CardDescription>Your personal account details</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium mb-1">Email Address</p>
+                  <p className="text-muted-foreground">{user?.email}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1">Account Created</p>
+                  <p className="text-muted-foreground">{user?.created_at && new Date(user.created_at).toLocaleDateString()}</p>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleSignOut}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Signing out..." : "Sign Out"}
+                </Button>
+              </CardFooter>
+            </Card>
+
+            {/* Subscription Information */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl">Subscription Plan</CardTitle>
+                  <CardDescription>Your current subscription and billing details</CardDescription>
+                </div>
+                <Badge variant={isPremium ? "default" : "secondary"} className="text-xs">
+                  {isPremium ? "Premium" : "Free Plan"}
+                </Badge>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4">
+                  <div className="flex items-center gap-3">
+                    <Tag className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Plan</p>
+                      <p className="text-muted-foreground">
+                        {isPremium ? "Premium ($10/month)" : "Free"}
+                      </p>
+                    </div>
                   </div>
                   
-                  <Button 
-                    asChild={isPremium ? false : true}
-                    variant={isPremium ? "outline" : "default"}
-                    className={isPremium ? "" : "sm:self-end"}
-                    disabled={isPremium}
-                  >
-                    {isPremium ? (
-                      "Manage Subscription"
-                    ) : (
-                      <Link to="/upgrade">
-                        Upgrade to Premium
-                      </Link>
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Star className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Features</p>
+                      <p className="text-muted-foreground">
+                        {isPremium 
+                          ? "Unlimited notes and folders" 
+                          : `Up to ${notesLimit} notes and ${foldersLimit} folders`}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {isPremium && (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <CalendarIcon className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Current Period</p>
+                          <p className="text-muted-foreground">
+                            {formatDate(subscription?.current_period_start)} - {formatDate(subscription?.current_period_end)}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium">Billing Status</p>
+                          <p className="text-muted-foreground capitalize">
+                            {subscription?.status || "Active"}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  
+                  <div className="flex items-center gap-3">
+                    <Shield className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-sm font-medium">Billing Protection</p>
+                      <p className="text-muted-foreground">
+                        All payments are securely processed through Stripe
+                      </p>
+                    </div>
+                  </div>
                 </div>
+
+                <Separator />
                 
                 {!isPremium && (
-                  <div className="text-sm">
-                    <p>
-                      Upgrade to <strong>Premium</strong> to unlock:
+                  <div className="bg-muted/50 p-4 rounded-lg">
+                    <h3 className="font-medium mb-2">Upgrade to Premium</h3>
+                    <p className="text-muted-foreground text-sm mb-4">
+                      Get unlimited notes and folders with our premium plan for just $10/month.
                     </p>
-                    <ul className="list-disc list-inside mt-2 space-y-1 text-muted-foreground">
-                      <li>Unlimited notes and folders</li>
-                      <li>Priority support</li>
-                      <li>All future premium features</li>
-                    </ul>
+                    <Button asChild>
+                      <Link to="/upgrade">
+                        Upgrade Now <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
                   </div>
                 )}
-              </div>
-            )}
+              </CardContent>
+              <CardFooter className="justify-between border-t pt-6">
+                {isPremium ? (
+                  <Button variant="outline" asChild>
+                    <a 
+                      href="https://billing.stripe.com/p/login/test_28o17I7jmeHQeXeaEE" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      Manage Billing
+                    </a>
+                  </Button>
+                ) : (
+                  <Button variant="outline" asChild>
+                    <Link to="/upgrade">View Plans</Link>
+                  </Button>
+                )}
+              </CardFooter>
+            </Card>
           </div>
-          
-          <div className="bg-card border rounded-lg p-6">
-            <h2 className="text-xl font-medium mb-4">Account Actions</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium">Sign Out</h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Sign out of your account on this device
-                </p>
-                <Button 
-                  variant="outline"
-                  onClick={signOut}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          {/* Danger Zone */}
-          <div className="bg-card border border-destructive/20 rounded-lg p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <h2 className="text-xl font-medium text-destructive">Danger Zone</h2>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium">Delete Account</h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Permanently delete your account and all your data. This action cannot be undone.
-                </p>
-                
-                <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive">
-                      Delete Account
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your account
-                        and remove all your data from our servers.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    
-                    <div className="space-y-2 py-2">
-                      <Label htmlFor="confirm-email">
-                        Type <span className="font-medium">{user?.email}</span> to confirm
-                      </Label>
-                      <Input 
-                        id="confirm-email"
-                        value={confirmText}
-                        onChange={(e) => setConfirmText(e.target.value)}
-                        placeholder={user?.email}
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <AlertDialogFooter>
-                      <AlertDialogCancel asChild>
-                        <Button variant="outline">Cancel</Button>
-                      </AlertDialogCancel>
-                      <AlertDialogAction asChild>
-                        <Button 
-                          variant="destructive" 
-                          onClick={handleDeleteAccount}
-                          disabled={confirmText !== user?.email || isDeleting}
-                        >
-                          {isDeleting ? "Deleting..." : "Delete Account"}
-                        </Button>
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
-          </div>
-        </div>
+        </motion.div>
       </div>
     </AppLayout>
   );

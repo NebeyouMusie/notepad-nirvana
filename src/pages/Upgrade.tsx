@@ -1,40 +1,55 @@
 
 import { useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
-import { Button } from "@/components/ui/button";
-import { usePlan } from "@/hooks/usePlan";
-import { useAuth } from "@/context/AuthContext";
-import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { useAuth } from "@/context/AuthContext";
+import { usePlan } from "@/hooks/usePlan";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Upgrade() {
   const { user } = useAuth();
-  const { isPremium, notesLimit, foldersLimit, notesRemaining, foldersRemaining } = usePlan();
+  const { isPremium, subscription } = usePlan();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleUpgrade = async () => {
+  const handleCheckout = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to be logged in to upgrade",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
+
     try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { priceId: 'prod_S4eGhl7NHwiHOK' },
+      // Call the create-checkout Edge Function
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: {
+          priceId: "prod_S4eGhl7NHwiHOK", // The product ID you provided
+        },
       });
 
       if (error) throw error;
-      
+
       if (data?.url) {
+        // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
-        throw new Error('No checkout URL returned');
+        throw new Error("No checkout URL returned");
       }
-    } catch (error: any) {
-      console.error('Error creating checkout session:', error);
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to create checkout session',
-        variant: 'destructive',
+        title: "Checkout failed",
+        description: "There was a problem creating your checkout session",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -43,116 +58,135 @@ export default function Upgrade() {
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6">
+      <div className="max-w-4xl mx-auto px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6"
+          className="mb-8 text-center"
         >
-          <div className="text-center mb-12">
-            <h1 className="text-3xl font-bold mb-2">Upgrade Your Plan</h1>
-            <p className="text-muted-foreground">
-              Choose the plan that's right for you
-            </p>
-          </div>
+          <h1 className="text-4xl font-bold mb-4">Upgrade Your Experience</h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Get unlimited notes and folders with our premium plan
+          </p>
+        </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Free Plan */}
-            <Card className={`border-2 ${!isPremium ? "border-primary" : "border-muted"}`}>
-              <CardHeader>
-                <CardTitle className="text-xl flex items-center">
-                  Free Plan
-                  {!isPremium && <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">Current</span>}
-                </CardTitle>
-                <CardDescription>Basic features for personal use</CardDescription>
-                <div className="mt-4">
-                  <span className="text-3xl font-bold">$0</span>
-                  <span className="text-muted-foreground"> /forever</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+          {/* Free Plan */}
+          <Card className={`border-2 ${!isPremium ? "border-primary" : "border-border"}`}>
+            <CardHeader>
+              <CardTitle className="text-2xl">Free Plan</CardTitle>
+              <div className="mt-2">
+                <span className="text-3xl font-bold">$0</span>
+                <span className="text-muted-foreground">/mo</span>
+              </div>
+              <CardDescription>Perfect for getting started</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <Check className="h-5 w-5 text-primary mr-2" />
+                  <span>Up to 10 notes</span>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                    <span>Up to <strong>{notesLimit} notes</strong> ({notesRemaining} remaining)</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                    <span>Up to <strong>{foldersLimit} folders</strong> ({foldersRemaining} remaining)</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                    <span>Basic features access</span>
-                  </li>
-                </ul>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  disabled={true}
-                  variant="outline"
-                  className="w-full"
-                >
+                <div className="flex items-center">
+                  <Check className="h-5 w-5 text-primary mr-2" />
+                  <span>Up to 5 folders</span>
+                </div>
+                <div className="flex items-center">
+                  <Check className="h-5 w-5 text-primary mr-2" />
+                  <span>Basic note formatting</span>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" className="w-full" disabled={true}>
+                {!isPremium ? "Current Plan" : "Basic Plan"}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* Premium Plan */}
+          <Card className={`border-2 ${isPremium ? "border-primary" : "border-border"}`}>
+            <CardHeader>
+              <CardTitle className="text-2xl">Premium Plan</CardTitle>
+              <div className="mt-2">
+                <span className="text-3xl font-bold">$10</span>
+                <span className="text-muted-foreground">/mo</span>
+              </div>
+              <CardDescription>For power users and professionals</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <Check className="h-5 w-5 text-primary mr-2" />
+                  <span>Unlimited notes</span>
+                </div>
+                <div className="flex items-center">
+                  <Check className="h-5 w-5 text-primary mr-2" />
+                  <span>Unlimited folders</span>
+                </div>
+                <div className="flex items-center">
+                  <Check className="h-5 w-5 text-primary mr-2" />
+                  <span>Priority support</span>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              {isPremium ? (
+                <Button variant="outline" className="w-full" disabled={true}>
                   Current Plan
                 </Button>
-              </CardFooter>
-            </Card>
-
-            {/* Premium Plan */}
-            <Card className={`border-2 ${isPremium ? "border-primary" : "border-muted"} relative overflow-hidden`}>
-              {!isPremium && (
-                <div className="absolute top-0 right-0 bg-primary text-primary-foreground px-3 py-1 -mr-8 mt-4 rotate-45 transform text-xs font-medium">
-                  Recommended
-                </div>
-              )}
-              <CardHeader>
-                <CardTitle className="text-xl flex items-center">
-                  <Sparkles className="h-5 w-5 mr-2 text-yellow-500" />
-                  Premium Plan
-                  {isPremium && <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">Current</span>}
-                </CardTitle>
-                <CardDescription>Advanced features for power users</CardDescription>
-                <div className="mt-4">
-                  <span className="text-3xl font-bold">$10</span>
-                  <span className="text-muted-foreground"> /month</span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <ul className="space-y-3">
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                    <span><strong>Unlimited notes</strong></span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                    <span><strong>Unlimited folders</strong></span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                    <span>Priority support</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-primary mr-2 mt-0.5" />
-                    <span>All future features</span>
-                  </li>
-                </ul>
-              </CardContent>
-              <CardFooter>
+              ) : (
                 <Button 
-                  onClick={handleUpgrade} 
-                  disabled={isLoading || isPremium} 
-                  className="w-full"
+                  variant="default" 
+                  className="w-full" 
+                  onClick={handleCheckout}
+                  disabled={isLoading}
                 >
-                  {isLoading ? "Processing..." : isPremium ? "Current Plan" : "Upgrade Now"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Upgrade Now"
+                  )}
                 </Button>
-              </CardFooter>
-            </Card>
-          </div>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
 
-          <div className="mt-8 text-center text-sm text-muted-foreground">
-            Questions about our plans? <a href="#" className="text-primary hover:underline">Contact support</a>
+        {isPremium && (
+          <div className="mt-8 text-center">
+            <p className="text-green-500 font-medium text-xl">
+              You're currently on the Premium plan! Enjoy unlimited notes and folders.
+            </p>
+            {subscription?.current_period_end && (
+              <p className="text-muted-foreground mt-2">
+                Your subscription renews on {new Date(subscription.current_period_end).toLocaleDateString()}
+              </p>
+            )}
           </div>
-        </motion.div>
+        )}
+
+        <div className="mt-16 max-w-2xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">Frequently Asked Questions</h2>
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-medium text-lg">What happens to my notes if I downgrade?</h3>
+              <p className="text-muted-foreground">Your notes will still be saved, but you won't be able to create new ones beyond the free limit until you make space.</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-lg">Can I cancel my subscription anytime?</h3>
+              <p className="text-muted-foreground">Yes, you can cancel your subscription at any time from your account page.</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-lg">How is my payment information secured?</h3>
+              <p className="text-muted-foreground">All payments are processed securely through Stripe. We never store your card details.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </AppLayout>
   );

@@ -1,13 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-
-export type Folder = {
-  id: string;
-  created_at: string;
-  name: string;
-  user_id: string;
-};
+import { Folder } from "@/types";
 
 // Create a new folder
 export const createFolder = async (name: string): Promise<Folder | null> => {

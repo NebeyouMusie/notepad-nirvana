@@ -4,11 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 
 // Define types for subscription data
+export type PlanType = 'free' | 'premium';
+export type SubscriptionStatus = string;
+
 export interface Subscription {
   id?: string;
   user_id?: string;
-  plan: 'free' | 'premium';
-  status: string;
+  plan: PlanType;
+  status: SubscriptionStatus;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
   current_period_start?: string;
@@ -26,6 +29,8 @@ export interface PlanDetails {
   foldersLimit: number;
   notesRemaining: number;
   foldersRemaining: number;
+  isAtNotesLimit: boolean;
+  isAtFoldersLimit: boolean;
 }
 
 export function usePlan(): PlanDetails {
@@ -61,7 +66,12 @@ export function usePlan(): PlanDetails {
           return;
         }
         
-        setSubscription(subscriptionData);
+        if (subscriptionData) {
+          setSubscription({
+            ...subscriptionData,
+            plan: subscriptionData.plan as PlanType
+          });
+        }
         
         // Count active notes (not in trash)
         const { data: notes, error: notesError } = await supabase
@@ -98,6 +108,8 @@ export function usePlan(): PlanDetails {
   // Calculate remaining items for free plan
   const notesRemaining = Math.max(0, FREE_NOTES_LIMIT - notesCount);
   const foldersRemaining = Math.max(0, FREE_FOLDERS_LIMIT - foldersCount);
+  const isAtNotesLimit = !isPremium && notesRemaining <= 0;
+  const isAtFoldersLimit = !isPremium && foldersRemaining <= 0;
   
   return {
     isPremium,
@@ -106,7 +118,9 @@ export function usePlan(): PlanDetails {
     notesLimit: isPremium ? Infinity : FREE_NOTES_LIMIT,
     foldersLimit: isPremium ? Infinity : FREE_FOLDERS_LIMIT,
     notesRemaining,
-    foldersRemaining
+    foldersRemaining,
+    isAtNotesLimit,
+    isAtFoldersLimit
   };
 }
 
