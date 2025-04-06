@@ -11,8 +11,7 @@ import {
   Trash,
   User,
   Settings,
-  LogOut,
-  CreditCard
+  LogOut
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -24,8 +23,6 @@ import { Label } from "@/components/ui/label";
 import { createFolder } from "@/services/folderService";
 import { toast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { usePlan } from "@/hooks/usePlan";
-import { Progress } from "@/components/ui/progress";
 
 interface SidebarProps {
   className?: string;
@@ -43,7 +40,6 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const isMobile = useIsMobile();
-  const { subscription, isPro } = usePlan();
   
   const isActive = (path: string) => location.pathname === path;
   const isFolderActive = (id: string) => location.pathname === `/folders/${id}`;
@@ -105,11 +101,6 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
       navigate(path);
     }
   };
-
-  // Calculate usage for free plan
-  const folderCount = folders.length;
-  const folderLimit = isPro ? '∞' : 5;
-  const folderPercentage = isPro ? 0 : Math.min((folderCount / 5) * 100, 100);
 
   return (
     <div
@@ -212,16 +203,6 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
                   </button>
                 ))}
               </div>
-              
-              {!isPro && (
-                <div className="px-3 mt-2">
-                  <div className="flex justify-between items-center text-xs mb-1">
-                    <span className="text-muted-foreground">Folders</span>
-                    <span className="font-medium">{folderCount} / {folderLimit}</span>
-                  </div>
-                  <Progress value={folderPercentage} className="h-1" />
-                </div>
-              )}
             </div>
           )}
         </nav>
@@ -249,13 +230,6 @@ export function Sidebar({ className, onToggle }: SidebarProps) {
           >
             <User size={18} />
             {!collapsed && <span>Account</span>}
-          </button>
-          <button
-            onClick={() => handleNavigation("/upgrade")}
-            className={`sidebar-item w-full text-left ${isActive("/upgrade") ? "active" : ""} ${!isPro ? "text-purple-500 font-medium" : ""}`}
-          >
-            <CreditCard size={18} className={!isPro ? "text-purple-500" : ""} />
-            {!collapsed && <span>{isPro ? "Subscription" : "Upgrade"}</span>}
           </button>
           <button
             onClick={() => signOut()}

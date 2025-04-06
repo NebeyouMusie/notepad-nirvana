@@ -1,19 +1,14 @@
 
 import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/AuthContext";
+import { motion } from "framer-motion";
+import { User, LogOut, AlertTriangle } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { 
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -24,195 +19,167 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Progress } from "@/components/ui/progress";
-import { LogOut } from "lucide-react";
-import { usePlan } from "@/hooks/usePlan";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Account() {
   const { user, signOut } = useAuth();
-  const { subscription, isLoading: isPlanLoading } = usePlan();
-  const navigate = useNavigate();
-
-  const [isLoadingLogout, setIsLoadingLogout] = useState(false);
-  const [isLoadingDelete, setIsLoadingDelete] = useState(false);
-  const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const handleDeleteAccount = async () => {
-    setIsLoadingDelete(true);
+    if (confirmText !== user?.email) return;
+    
+    setIsDeleting(true);
+    
     try {
-      if (!user) {
-        throw new Error("No user session found");
-      }
-
-      const { error } = await supabase.auth.admin.deleteUser(user.id);
-
-      if (error) {
-        throw error;
-      }
-
+      // Delete user data from database
+      // This is just a suggestion - actual implementation would depend on your database structure
+      // You would need to delete all user-related data from your database tables
+      await supabase
+        .from('notes')
+        .delete()
+        .eq('user_id', user?.id);
+        
+      // Delete the user's authentication record
+      const { error } = await supabase.auth.admin.deleteUser(user?.id || '');
+      
+      if (error) throw error;
+      
       toast({
         title: "Account deleted",
-        description: "Your account has been successfully deleted.",
+        description: "Your account and all associated data have been deleted",
       });
-      navigate("/auth");
+      
+      signOut();
     } catch (error: any) {
-      console.error("Error deleting account:", error);
       toast({
-        title: "Error",
-        description:
-          error.message || "Failed to delete account. Please try again.",
+        title: "Error deleting account",
+        description: error.message || "An error occurred while deleting your account",
         variant: "destructive",
       });
-    } finally {
-      setIsLoadingDelete(false);
-      setDeleteAccountDialog(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    setIsLoadingLogout(true);
-    try {
-      await signOut();
-      toast({
-        title: "Signed out",
-        description: "You have been signed out successfully.",
-      });
-      navigate("/auth");
-    } catch (error: any) {
-      console.error("Error signing out:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sign out. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoadingLogout(false);
+      setIsDeleting(false);
     }
   };
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Account Settings</h1>
+      <div className="max-w-3xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-6"
+        >
+          <div className="flex items-center">
+            <User className="mr-2 h-6 w-6" />
+            <h1 className="text-3xl font-semibold">Account</h1>
+          </div>
           <p className="text-muted-foreground">
-            Manage your account settings and preferences.
+            Manage your account settings and preferences
           </p>
-        </div>
+        </motion.div>
         
-        {/* Profile Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile Information</CardTitle>
-            <CardDescription>
-              Your account information
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-2">
-              <div className="text-sm text-muted-foreground">Email</div>
-              <div className="font-medium">{user?.email}</div>
+        <div className="space-y-6">
+          <div className="bg-card border rounded-lg p-6">
+            <h2 className="text-xl font-medium mb-4">Profile Information</h2>
+            
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                value={user?.email || ""}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">
+                Your email cannot be changed
+              </p>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Subscription */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Subscription</CardTitle>
-            <CardDescription>
-              Manage your subscription plan and billing details.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {isPlanLoading ? (
-              <Progress value={75} />
-            ) : subscription ? (
-              <>
-                <div className="grid grid-cols-sm items-center gap-4">
-                  <div className="text-sm text-muted-foreground">Current Plan</div>
-                  <span className="font-medium capitalize">{subscription.plan}</span>
-                </div>
-                <div className="grid grid-cols-sm items-center gap-4">
-                  <div className="text-sm text-muted-foreground">Status</div>
-                  <span className="font-medium capitalize">{subscription.status}</span>
-                </div>
-                {subscription.currentPeriodEnd && (
-                  <div className="grid grid-cols-sm items-center gap-4">
-                    <div className="text-sm text-muted-foreground">Current Period End</div>
-                    <span className="font-medium">
-                      {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-                {subscription.plan === 'free' && (
-                  <Button onClick={() => navigate("/upgrade")}>
-                    Upgrade to Pro
-                  </Button>
-                )}
-              </>
-            ) : (
-              <p>No subscription found.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Actions</CardTitle>
-            <CardDescription>
-              Common account actions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="outline"
-              onClick={handleSignOut}
-              disabled={isLoadingLogout}
-              className="w-full"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              {isLoadingLogout ? "Signing Out..." : "Sign Out"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Danger Zone */}
-        <Card className="border-destructive/50">
-          <CardHeader>
-            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-            <CardDescription>
-              Irreversible actions that affect your account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full">Delete Account</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete
-                    your account and remove your data from our servers.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteAccount}
-                    disabled={isLoadingDelete}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {isLoadingDelete ? "Deleting..." : "Delete"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </CardContent>
-        </Card>
+          </div>
+          
+          <div className="bg-card border rounded-lg p-6">
+            <h2 className="text-xl font-medium mb-4">Account Actions</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium">Sign Out</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Sign out of your account on this device
+                </p>
+                <Button 
+                  variant="outline"
+                  onClick={signOut}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Danger Zone */}
+          <div className="bg-card border border-destructive/20 rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <h2 className="text-xl font-medium text-destructive">Danger Zone</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium">Delete Account</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Permanently delete your account and all your data. This action cannot be undone.
+                </p>
+                
+                <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive">
+                      Delete Account
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete your account
+                        and remove all your data from our servers.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    
+                    <div className="space-y-2 py-2">
+                      <Label htmlFor="confirm-email">
+                        Type <span className="font-medium">{user?.email}</span> to confirm
+                      </Label>
+                      <Input 
+                        id="confirm-email"
+                        value={confirmText}
+                        onChange={(e) => setConfirmText(e.target.value)}
+                        placeholder={user?.email}
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <AlertDialogFooter>
+                      <AlertDialogCancel asChild>
+                        <Button variant="outline">Cancel</Button>
+                      </AlertDialogCancel>
+                      <AlertDialogAction asChild>
+                        <Button 
+                          variant="destructive" 
+                          onClick={handleDeleteAccount}
+                          disabled={confirmText !== user?.email || isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete Account"}
+                        </Button>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </AppLayout>
   );

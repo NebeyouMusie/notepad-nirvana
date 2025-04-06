@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export interface Folder {
   id: string;
@@ -8,145 +9,260 @@ export interface Folder {
   created_at: string;
 }
 
-export async function fetchFolders(): Promise<Folder[]> {
-  const { data, error } = await supabase
-    .from("folders")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("Error fetching folders:", error);
-    return [];
-  }
-
-  return data || [];
-}
-
-export async function createFolder(name: string): Promise<Folder | null> {
-  const { data: userData } = await supabase.auth.getUser();
-  
-  if (!userData?.user) {
-    console.error("No authenticated user found");
-    return null;
-  }
-  
-  const { data, error } = await supabase
-    .from("folders")
-    .insert({
-      name,
-      user_id: userData.user.id
-    })
-    .select()
-    .single();
-  
-  if (error) {
-    console.error("Error creating folder:", error);
-    return null;
-  }
-  
-  return data;
-}
-
-export async function updateFolder(id: string, name: string): Promise<Folder | null> {
-  const { data, error } = await supabase
-    .from("folders")
-    .update({ name })
-    .eq("id", id)
-    .select()
-    .single();
-  
-  if (error) {
-    console.error("Error updating folder:", error);
-    return null;
-  }
-  
-  return data;
-}
-
-export async function deleteFolder(id: string): Promise<boolean> {
-  const { error } = await supabase
-    .from("folders")
-    .delete()
-    .eq("id", id);
-  
-  if (error) {
-    console.error("Error deleting folder:", error);
-    return false;
-  }
-  
-  return true;
-}
-
-export async function addNoteToFolder(noteId: string, folderId: string): Promise<boolean> {
-  // First check if the association already exists
-  const { data: existingAssociation } = await supabase
-    .from("notes_folders")
-    .select("*")
-    .eq("note_id", noteId)
-    .eq("folder_id", folderId)
-    .single();
-
-  if (existingAssociation) {
-    // Already exists, no need to create again
-    return true;
-  }
-
-  const { error } = await supabase
-    .from("notes_folders")
-    .insert({
-      note_id: noteId,
-      folder_id: folderId
+// Fetch all folders for the current user
+export async function fetchFolders() {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to view folders",
+        variant: "destructive",
+      });
+      return [];
+    }
+    
+    const { data, error } = await supabase
+      .from('folders')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error: any) {
+    toast({
+      title: "Error fetching folders",
+      description: error.message,
+      variant: "destructive",
     });
-
-  if (error) {
-    console.error("Error adding note to folder:", error);
-    return false;
+    return [];
   }
-
-  return true;
 }
 
-export async function removeNoteFromFolder(noteId: string, folderId: string): Promise<boolean> {
-  const { error } = await supabase
-    .from("notes_folders")
-    .delete()
-    .eq("note_id", noteId)
-    .eq("folder_id", folderId);
-
-  if (error) {
-    console.error("Error removing note from folder:", error);
-    return false;
+// Create a new folder
+export async function createFolder(name: string) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to create folders",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    const { data, error } = await supabase
+      .from('folders')
+      .insert([{ 
+        name,
+        user_id: session.user.id
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error: any) {
+    toast({
+      title: "Error creating folder",
+      description: error.message,
+      variant: "destructive",
+    });
+    return null;
   }
-
-  return true;
 }
 
-export async function getNotesFolders(noteId: string): Promise<Folder[]> {
-  const { data, error } = await supabase
-    .from("notes_folders")
-    .select("folder_id")
-    .eq("note_id", noteId);
+// Update a folder name
+export async function updateFolder(id: string, name: string) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to update folders",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    const { data, error } = await supabase
+      .from('folders')
+      .update({ name })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error: any) {
+    toast({
+      title: "Error updating folder",
+      description: error.message,
+      variant: "destructive",
+    });
+    return null;
+  }
+}
 
-  if (error || !data) {
-    console.error("Error fetching note's folders:", error);
+// Delete a folder
+export async function deleteFolder(id: string) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to delete folders",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    const { error } = await supabase
+      .from('folders')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    return true;
+  } catch (error: any) {
+    toast({
+      title: "Error deleting folder",
+      description: error.message,
+      variant: "destructive",
+    });
+    return false;
+  }
+}
+
+// Add a note to a folder
+export async function addNoteToFolder(noteId: string, folderId: string) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to update folders",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    // First check if the note is already in this folder
+    const { data: existingEntry, error: checkError } = await supabase
+      .from('notes_folders')
+      .select('*')
+      .eq('note_id', noteId)
+      .eq('folder_id', folderId);
+      
+    if (checkError) throw checkError;
+    
+    // If the note is already in the folder, return true without trying to insert
+    if (existingEntry && existingEntry.length > 0) {
+      return true;
+    }
+    
+    // If not already in the folder, insert it
+    const { error } = await supabase
+      .from('notes_folders')
+      .insert([{ note_id: noteId, folder_id: folderId }]);
+    
+    if (error) {
+      if (error.code === '23505') { // PostgreSQL duplicate key error code
+        // This is fine, the note is already in the folder
+        return true;
+      }
+      throw error;
+    }
+    
+    return true;
+  } catch (error: any) {
+    toast({
+      title: "Error adding note to folder",
+      description: error.message,
+      variant: "destructive",
+    });
+    return false;
+  }
+}
+
+// Remove a note from a folder
+export async function removeNoteFromFolder(noteId: string, folderId: string) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to update folders",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    const { error } = await supabase
+      .from('notes_folders')
+      .delete()
+      .match({ note_id: noteId, folder_id: folderId });
+    
+    if (error) throw error;
+    
+    return true;
+  } catch (error: any) {
+    toast({
+      title: "Error removing note from folder",
+      description: error.message,
+      variant: "destructive",
+    });
+    return false;
+  }
+}
+
+// Get all folders a note belongs to
+export async function getNotesFolders(noteId: string) {
+  try {
+    // Get user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication error",
+        description: "You must be logged in to view folders",
+        variant: "destructive",
+      });
+      return [];
+    }
+    
+    const { data, error } = await supabase
+      .from('notes_folders')
+      .select('folder_id')
+      .eq('note_id', noteId);
+    
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      const folderIds = data.map(item => item.folder_id);
+      
+      const { data: folders, error: foldersError } = await supabase
+        .from('folders')
+        .select('*')
+        .in('id', folderIds);
+      
+      if (foldersError) throw foldersError;
+      
+      return folders || [];
+    }
+    
+    return [];
+  } catch (error: any) {
+    console.error("Error fetching note's folders:", error.message);
     return [];
   }
-
-  if (data.length === 0) {
-    return [];
-  }
-
-  const folderIds = data.map(item => item.folder_id);
-  
-  const { data: folders, error: foldersError } = await supabase
-    .from("folders")
-    .select("*")
-    .in("id", folderIds);
-
-  if (foldersError || !folders) {
-    console.error("Error fetching folders by ids:", foldersError);
-    return [];
-  }
-
-  return folders;
 }
