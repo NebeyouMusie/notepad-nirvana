@@ -4,9 +4,11 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import { motion } from "framer-motion";
-import { User, LogOut, AlertTriangle } from "lucide-react";
+import { User, LogOut, AlertTriangle, CreditCard, CheckCircle2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
   AlertDialog,
@@ -20,12 +22,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { usePlan } from "@/hooks/usePlan";
+import { useNavigate } from "react-router-dom";
 
 export default function Account() {
   const { user, signOut } = useAuth();
+  const { subscription, isPro } = usePlan();
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleDeleteAccount = async () => {
     if (confirmText !== user?.email) return;
@@ -62,6 +68,16 @@ export default function Account() {
     }
   };
 
+  const formatSubscriptionStatus = () => {
+    if (!subscription) return "Loading...";
+
+    if (isPro) {
+      return "Pro";
+    } else {
+      return "Free";
+    }
+  };
+
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto">
@@ -81,6 +97,7 @@ export default function Account() {
         </motion.div>
         
         <div className="space-y-6">
+          {/* Profile Section */}
           <div className="bg-card border rounded-lg p-6">
             <h2 className="text-xl font-medium mb-4">Profile Information</h2>
             
@@ -98,6 +115,58 @@ export default function Account() {
             </div>
           </div>
           
+          {/* Subscription Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <CreditCard className="mr-2 h-5 w-5" />
+                Subscription
+              </CardTitle>
+              <CardDescription>
+                Manage your subscription and billing information
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Current Plan</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isPro ? "Lifetime Pro access" : "Free plan with limited features"}
+                    </p>
+                  </div>
+                  <Badge
+                    className={isPro ? "bg-green-500 hover:bg-green-500/90" : ""}
+                  >
+                    {formatSubscriptionStatus()}
+                  </Badge>
+                </div>
+                
+                {isPro ? (
+                  <div className="flex items-center p-3 bg-muted/50 rounded-md">
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" />
+                    <p className="text-sm">
+                      Thank you for your support! You have lifetime access to all Pro features.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm">
+                      Upgrade to Pro for unlimited notes, folders, and more!
+                    </p>
+                    <Button 
+                      onClick={() => navigate("/upgrade")}
+                      className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700"
+                    >
+                      Upgrade to Pro
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Account Actions */}
           <div className="bg-card border rounded-lg p-6">
             <h2 className="text-xl font-medium mb-4">Account Actions</h2>
             
@@ -168,7 +237,7 @@ export default function Account() {
                         <Button 
                           variant="destructive" 
                           onClick={handleDeleteAccount}
-                          disabled={confirmText !== user?.email || isDeleting}
+                          disabled={confirmText !== user?.email || isLoading}
                         >
                           {isDeleting ? "Deleting..." : "Delete Account"}
                         </Button>
