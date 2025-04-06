@@ -85,9 +85,17 @@ serve(async (req) => {
           quantity: 1,
         },
       ],
-      mode: "payment", // Important: this is for one-time payments, not subscriptions
-      success_url: `${req.headers.get("origin")}/account?status=success`,
-      cancel_url: `${req.headers.get("origin")}/upgrade?status=canceled`,
+      mode: "payment", // One-time payment
+      success_url: `${req.headers.get("origin")}/account?payment_status=success`,
+      cancel_url: `${req.headers.get("origin")}/upgrade?payment_status=canceled`,
+      metadata: {
+        user_id: user.id, // Add user ID to metadata for webhook processing
+      },
+      payment_intent_data: {
+        metadata: {
+          user_id: user.id, // Important for webhook processing
+        },
+      },
     });
 
     return new Response(

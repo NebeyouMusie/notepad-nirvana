@@ -1,0 +1,9 @@
+
+[build]
+command = ""
+
+[env.production]
+memory = 256
+
+# Disable JWT verification for the webhook
+verify_jwt = false
