@@ -1,6 +1,9 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+// Follow this setup guide to integrate the Deno runtime and Supabase client:
+// https://docs.supabase.com/guides/functions/connect-to-supabase
+
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,48 +11,46 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS
+  // Handle CORS preflight request
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      headers: corsHeaders,
-      status: 204,
-    });
+    return new Response(null, { headers: corsHeaders, status: 204 });
   }
-
+  
   try {
-    // Initialize Supabase client with service role key to have admin privileges
-    const supabase = createClient(
+    // Create a Supabase client with the admin/service role key
+    const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
     );
-
-    // Execute the SQL to enable REPLICA IDENTITY FULL on the user_subscriptions table
-    const { error } = await supabase.rpc('enable_realtime_for_subscriptions');
-
+    
+    // Call the stored procedure that enables realtime for the user_subscriptions table
+    const { error } = await supabaseClient.rpc('enable_realtime_for_subscriptions');
+    
     if (error) {
+      console.error("Error enabling realtime:", error);
       throw error;
     }
-
+    
     return new Response(
-      JSON.stringify({ message: "Realtime enabled for user_subscriptions table" }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-        status: 200,
+      JSON.stringify({ success: true, message: "Realtime enabled for user_subscriptions table" }),
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200 
       }
     );
   } catch (error) {
-    console.error("Error:", error.message);
+    console.error("Function error:", error.message);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-        status: 500,
+      { 
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500 
       }
     );
   }

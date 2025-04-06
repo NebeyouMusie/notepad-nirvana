@@ -183,6 +183,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      enable_realtime_for_subscriptions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

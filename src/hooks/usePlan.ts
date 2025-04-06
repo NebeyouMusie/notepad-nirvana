@@ -34,14 +34,14 @@ export function usePlan() {
       try {
         setIsLoading(true);
         
-        // Use the raw query method to avoid type issues
+        // Use maybeSingle() instead of single() to handle cases where no record exists
         const { data, error } = await supabase
           .from('user_subscriptions')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         
-        if (error) {
+        if (error && error.code !== 'PGRST116') {
           console.error('Error fetching subscription:', error);
           throw error;
         }
@@ -54,6 +54,24 @@ export function usePlan() {
           });
         } else {
           // Create a default subscription for new users
+          try {
+            // First try to insert a default record for this user
+            const { error: insertError } = await supabase
+              .from('user_subscriptions')
+              .insert({
+                user_id: user.id,
+                plan: 'free',
+                status: 'active'
+              });
+              
+            if (insertError) {
+              console.error('Error creating default subscription:', insertError);
+            }
+          } catch (insertErr) {
+            console.error('Failed to create default subscription:', insertErr);
+          }
+          
+          // Set default subscription state regardless of insert success
           setSubscription({
             plan: 'free',
             status: 'active',
