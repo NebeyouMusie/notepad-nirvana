@@ -34,7 +34,7 @@ export function usePlan() {
       try {
         setIsLoading(true);
         
-        // Use maybeSingle() instead of single() to handle cases where no record exists
+        // First, check if the user has a subscription in Supabase
         const { data, error } = await supabase
           .from('user_subscriptions')
           .select('*')
@@ -53,33 +53,48 @@ export function usePlan() {
             currentPeriodEnd: data.current_period_end,
           });
         } else {
-          // Create a default subscription for new users
+          console.log("No subscription found, attempting to create default subscription");
+          
+          // Try to create a subscription using the supabase function
           try {
-            // First try to insert a default record for this user
-            const { error: insertError } = await supabase
-              .from('user_subscriptions')
-              .insert({
-                user_id: user.id,
-                plan: 'free',
-                status: 'active'
-              });
-              
-            if (insertError) {
-              console.error('Error creating default subscription:', insertError);
+            // Call the enable-realtime function to make sure realtime is enabled
+            await supabase.functions.invoke('enable-realtime');
+            
+            // Use an edge function for this operation to bypass RLS
+            const { error: createError } = await supabase.functions.invoke('create-default-subscription', {
+              body: { userId: user.id }
+            });
+            
+            if (createError) {
+              console.error('Error invoking create-default-subscription:', createError);
+              throw createError;
             }
+            
+            // Set default subscription state 
+            setSubscription({
+              plan: 'free',
+              status: 'active',
+              currentPeriodEnd: null,
+            });
           } catch (insertErr) {
             console.error('Failed to create default subscription:', insertErr);
+            // Still set a default subscription in the UI to avoid errors
+            setSubscription({
+              plan: 'free',
+              status: 'active',
+              currentPeriodEnd: null,
+            });
           }
-          
-          // Set default subscription state regardless of insert success
-          setSubscription({
-            plan: 'free',
-            status: 'active',
-            currentPeriodEnd: null,
-          });
         }
       } catch (error) {
         console.error('Error fetching subscription:', error);
+        // Set a default subscription in the UI to avoid errors
+        setSubscription({
+          plan: 'free',
+          status: 'active',
+          currentPeriodEnd: null,
+        });
+        
         toast({
           title: "Error",
           description: "Failed to load subscription information",

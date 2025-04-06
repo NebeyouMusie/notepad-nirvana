@@ -39,13 +39,27 @@ serve(async (req) => {
       throw new Error("Invalid token or user not found");
     }
 
+    console.log("Creating checkout for user:", user.id);
+
     // Initialize Stripe
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
     });
 
+    // Initialize Supabase admin client for RLS bypassing
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
     // Check if the user already has a Stripe customer ID
-    const { data: subscriptionData } = await supabase
+    const { data: subscriptionData } = await supabaseAdmin
       .from("user_subscriptions")
       .select("stripe_customer_id")
       .eq("user_id", user.id)
@@ -55,6 +69,7 @@ serve(async (req) => {
 
     // If no customer ID exists, create a new customer
     if (!customerId) {
+      console.log("Creating new Stripe customer for user:", user.id);
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: {
@@ -64,12 +79,38 @@ serve(async (req) => {
       
       customerId = customer.id;
       
-      // Update the user subscription record with the new customer ID
-      await supabase
+      // Check if subscription record exists
+      const { data: subData } = await supabaseAdmin
         .from("user_subscriptions")
-        .update({ stripe_customer_id: customerId })
-        .eq("user_id", user.id);
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (subData) {
+        // Update existing record with the new customer ID
+        await supabaseAdmin
+          .from("user_subscriptions")
+          .update({ 
+            stripe_customer_id: customerId,
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", user.id);
+      } else {
+        // Create a new subscription record with the customer ID
+        await supabaseAdmin
+          .from("user_subscriptions")
+          .insert({
+            user_id: user.id,
+            plan: 'free',
+            status: 'active',
+            stripe_customer_id: customerId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+      }
     }
+
+    console.log("Creating checkout session with customer:", customerId);
 
     // Create the checkout session for a one-time payment
     const session = await stripe.checkout.sessions.create({
@@ -89,14 +130,16 @@ serve(async (req) => {
       success_url: `${req.headers.get("origin")}/account?payment_status=success`,
       cancel_url: `${req.headers.get("origin")}/upgrade?payment_status=canceled`,
       metadata: {
-        user_id: user.id, // Add user ID to metadata for webhook processing
+        user_id: user.id, // Important: Add user ID to metadata for webhook processing
       },
       payment_intent_data: {
         metadata: {
-          user_id: user.id, // Important for webhook processing
+          user_id: user.id, // Important: Add user ID to payment intent metadata
         },
       },
     });
+
+    console.log("Checkout session created successfully:", session.id);
 
     return new Response(
       JSON.stringify({ session }),

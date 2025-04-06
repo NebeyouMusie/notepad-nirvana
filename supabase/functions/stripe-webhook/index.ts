@@ -25,7 +25,11 @@ serve(async (req) => {
     const signature = req.headers.get("stripe-signature");
     
     if (!signature) {
-      throw new Error("No Stripe signature found");
+      console.error("No Stripe signature found");
+      return new Response(JSON.stringify({ error: "No Stripe signature found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
     
     // Initialize Stripe with the secret key
@@ -49,7 +53,7 @@ serve(async (req) => {
     
     console.log(`Event received: ${event.type}`);
     
-    // Create a Supabase client with the admin key
+    // Create a Supabase client with the admin key - this bypasses RLS
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") || "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
@@ -65,20 +69,22 @@ serve(async (req) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+        console.log("Processing checkout.session.completed:", session);
         
         // Get user from Supabase by matching Stripe customer ID or email
         let userId = null;
         
         if (session.customer) {
           // Try to find user by customer ID
-          const { data: subData } = await supabaseAdmin
+          const { data: customersData } = await supabaseAdmin
             .from('user_subscriptions')
             .select('user_id')
             .eq('stripe_customer_id', session.customer)
             .maybeSingle();
             
-          if (subData) {
-            userId = subData.user_id;
+          if (customersData) {
+            userId = customersData.user_id;
+            console.log("Found user by customer ID:", userId);
           }
         }
         
@@ -93,61 +99,159 @@ serve(async (req) => {
           
           if (matchedUser) {
             userId = matchedUser.id;
+            console.log("Found user by email:", userId);
           }
+        }
+        
+        // Additionally, try to extract user_id from metadata
+        if (!userId && session.metadata?.user_id) {
+          userId = session.metadata.user_id;
+          console.log("Found user from metadata:", userId);
         }
         
         if (!userId) {
           console.error("Could not find user for this checkout session");
-          break;
+          return new Response(JSON.stringify({ error: "User not found" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
         }
         
-        // For one-time payments, update the subscription to 'pro'
-        if (session.mode === 'payment') {
+        console.log("Updating subscription for user:", userId);
+        
+        // For one-time payments, update or create the subscription to 'pro'
+        const { data: existingSubscription } = await supabaseAdmin
+          .from('user_subscriptions')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+        
+        if (existingSubscription) {
+          // Update existing record
           const { error: updateError } = await supabaseAdmin
             .from('user_subscriptions')
             .update({
               plan: 'pro',
               status: 'active',
               stripe_customer_id: session.customer,
-              // For one-time payments, we don't need to set period_end
+              updated_at: new Date().toISOString()
             })
             .eq('user_id', userId);
             
           if (updateError) {
             console.error("Error updating subscription:", updateError);
+            return new Response(JSON.stringify({ error: updateError.message }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            });
+          }
+        } else {
+          // Create new record
+          const { error: insertError } = await supabaseAdmin
+            .from('user_subscriptions')
+            .insert({
+              user_id: userId,
+              plan: 'pro',
+              status: 'active',
+              stripe_customer_id: session.customer,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            
+          if (insertError) {
+            console.error("Error creating subscription:", insertError);
+            return new Response(JSON.stringify({ error: insertError.message }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            });
           }
         }
         
+        console.log("Successfully updated subscription for user:", userId);
         break;
       }
       
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object;
+        console.log("Processing payment_intent.succeeded:", paymentIntent);
         
-        // If this is for a one-time payment, we can use the customer ID
-        // to find the user and update their subscription
-        if (paymentIntent.customer) {
-          const { data: subData } = await supabaseAdmin
+        // Get user from metadata or customer ID
+        let userId = null;
+        
+        if (paymentIntent.metadata?.user_id) {
+          userId = paymentIntent.metadata.user_id;
+          console.log("Found user from metadata:", userId);
+        } else if (paymentIntent.customer) {
+          // Try to find user by customer ID
+          const { data: customerData } = await supabaseAdmin
             .from('user_subscriptions')
             .select('user_id')
             .eq('stripe_customer_id', paymentIntent.customer)
             .maybeSingle();
             
-          if (subData?.user_id) {
-            const { error: updateError } = await supabaseAdmin
-              .from('user_subscriptions')
-              .update({
-                plan: 'pro',
-                status: 'active',
-              })
-              .eq('user_id', subData.user_id);
-              
-            if (updateError) {
-              console.error("Error updating subscription:", updateError);
-            }
+          if (customerData) {
+            userId = customerData.user_id;
+            console.log("Found user by customer ID:", userId);
           }
         }
         
+        if (!userId) {
+          console.error("Could not find user for this payment intent");
+          return new Response(JSON.stringify({ error: "User not found" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          });
+        }
+        
+        console.log("Updating subscription for user:", userId);
+        
+        // Check if subscription exists
+        const { data: existingSubscription } = await supabaseAdmin
+          .from('user_subscriptions')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+        
+        if (existingSubscription) {
+          // Update existing record
+          const { error: updateError } = await supabaseAdmin
+            .from('user_subscriptions')
+            .update({
+              plan: 'pro',
+              status: 'active',
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', userId);
+            
+          if (updateError) {
+            console.error("Error updating subscription:", updateError);
+            return new Response(JSON.stringify({ error: updateError.message }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            });
+          }
+        } else {
+          // Create new record
+          const { error: insertError } = await supabaseAdmin
+            .from('user_subscriptions')
+            .insert({
+              user_id: userId,
+              plan: 'pro',
+              status: 'active',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            
+          if (insertError) {
+            console.error("Error creating subscription:", insertError);
+            return new Response(JSON.stringify({ error: insertError.message }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+              status: 500,
+            });
+          }
+        }
+        
+        console.log("Successfully updated subscription for user:", userId);
         break;
       }
       
