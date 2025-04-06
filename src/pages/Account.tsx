@@ -1,16 +1,20 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
-import { motion } from "framer-motion";
-import { User, LogOut, AlertTriangle, CreditCard, CheckCircle2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { 
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -21,234 +25,278 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Settings2, User, Mail, Lock, LogOut } from "lucide-react";
 import { usePlan } from "@/hooks/usePlan";
-import { useNavigate } from "react-router-dom";
 
 export default function Account() {
-  const { user, signOut } = useAuth();
-  const { subscription, isPro } = usePlan();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [confirmText, setConfirmText] = useState("");
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { user, signOut, updateUserProfile } = useAuth();
+  const { subscription, isLoading: isPlanLoading } = usePlan();
   const navigate = useNavigate();
 
-  const handleDeleteAccount = async () => {
-    if (confirmText !== user?.email) return;
-    
-    setIsDeleting(true);
-    
-    try {
-      // Delete user data from database
-      // This is just a suggestion - actual implementation would depend on your database structure
-      // You would need to delete all user-related data from your database tables
-      await supabase
-        .from('notes')
-        .delete()
-        .eq('user_id', user?.id);
-        
-      // Delete the user's authentication record
-      const { error } = await supabase.auth.admin.deleteUser(user?.id || '');
-      
-      if (error) throw error;
-      
+  const [name, setName] = useState(user?.user_metadata?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isLoadingLogout, setIsLoadingLogout] = useState(false);
+  const [isLoadingDelete, setIsLoadingDelete] = useState(false);
+  const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.user_metadata?.name || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
+
+  const handleUpdateProfile = async () => {
+    if (!user) {
       toast({
-        title: "Account deleted",
-        description: "Your account and all associated data have been deleted",
-      });
-      
-      signOut();
-    } catch (error: any) {
-      toast({
-        title: "Error deleting account",
-        description: error.message || "An error occurred while deleting your account",
+        title: "Error",
+        description: "No user session found",
         variant: "destructive",
       });
-      setIsDeleting(false);
+      return;
+    }
+
+    if (password && password !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const updates: {
+        email?: string;
+        password?: string;
+        data?: { name?: string };
+      } = {
+        data: {
+          name: name,
+        },
+      };
+
+      if (email !== user.email) {
+        updates.email = email;
+      }
+
+      if (password) {
+        updates.password = password;
+      }
+
+      await updateUserProfile(updates);
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully",
+      });
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+      setPassword("");
+      setConfirmPassword("");
     }
   };
 
-  const formatSubscriptionStatus = () => {
-    if (!subscription) return "Loading...";
+  const handleDeleteAccount = async () => {
+    setIsLoadingDelete(true);
+    try {
+      if (!user) {
+        throw new Error("No user session found");
+      }
 
-    if (isPro) {
-      return "Pro";
-    } else {
-      return "Free";
+      const { error } = await supabase.auth.admin.deleteUser(user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Account deleted",
+        description: "Your account has been successfully deleted.",
+      });
+      navigate("/auth");
+    } catch (error: any) {
+      console.error("Error deleting account:", error);
+      toast({
+        title: "Error",
+        description:
+          error.message || "Failed to delete account. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingDelete(false);
+      setDeleteAccountDialog(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setIsLoadingLogout(true);
+    try {
+      await signOut();
+      toast({
+        title: "Signed out",
+        description: "You have been signed out successfully.",
+      });
+      navigate("/auth");
+    } catch (error: any) {
+      console.error("Error signing out:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingLogout(false);
     }
   };
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mb-6"
-        >
-          <div className="flex items-center">
-            <User className="mr-2 h-6 w-6" />
-            <h1 className="text-3xl font-semibold">Account</h1>
-          </div>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Account Settings</h1>
           <p className="text-muted-foreground">
-            Manage your account settings and preferences
+            Manage your account settings and preferences.
           </p>
-        </motion.div>
-        
-        <div className="space-y-6">
-          {/* Profile Section */}
-          <div className="bg-card border rounded-lg p-6">
-            <h2 className="text-xl font-medium mb-4">Profile Information</h2>
-            
-            <div className="space-y-2">
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile Information</CardTitle>
+            <CardDescription>
+              Update your profile information such as name and email address.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid grid-cols-sm items-center gap-4">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-sm items-center gap-4">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                value={user?.email || ""}
-                disabled
-                className="bg-muted"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Your email cannot be changed
-              </p>
             </div>
-          </div>
-          
-          {/* Subscription Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <CreditCard className="mr-2 h-5 w-5" />
-                Subscription
-              </CardTitle>
-              <CardDescription>
-                Manage your subscription and billing information
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Current Plan</p>
-                    <p className="text-sm text-muted-foreground">
-                      {isPro ? "Lifetime Pro access" : "Free plan with limited features"}
-                    </p>
-                  </div>
-                  <Badge
-                    className={isPro ? "bg-green-500 hover:bg-green-500/90" : ""}
-                  >
-                    {formatSubscriptionStatus()}
-                  </Badge>
+            <div className="grid grid-cols-sm items-center gap-4">
+              <Label htmlFor="password">New Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-sm items-center gap-4">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleUpdateProfile} disabled={isUpdating}>
+              {isUpdating ? "Updating..." : "Update Profile"}
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Subscription</CardTitle>
+            <CardDescription>
+              Manage your subscription plan and billing details.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            {isPlanLoading ? (
+              <Progress value={75} />
+            ) : subscription ? (
+              <>
+                <div className="grid grid-cols-sm items-center gap-4">
+                  <Label>Plan</Label>
+                  <span className="font-medium">{subscription.plan}</span>
                 </div>
-                
-                {isPro ? (
-                  <div className="flex items-center p-3 bg-muted/50 rounded-md">
-                    <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" />
-                    <p className="text-sm">
-                      Thank you for your support! You have lifetime access to all Pro features.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-sm">
-                      Upgrade to Pro for unlimited notes, folders, and more!
-                    </p>
-                    <Button 
-                      onClick={() => navigate("/upgrade")}
-                      className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700"
-                    >
-                      Upgrade to Pro
-                    </Button>
+                <div className="grid grid-cols-sm items-center gap-4">
+                  <Label>Status</Label>
+                  <span className="font-medium">{subscription.status}</span>
+                </div>
+                {subscription.currentPeriodEnd && (
+                  <div className="grid grid-cols-sm items-center gap-4">
+                    <Label>Current Period End</Label>
+                    <span className="font-medium">
+                      {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                    </span>
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Account Actions */}
-          <div className="bg-card border rounded-lg p-6">
-            <h2 className="text-xl font-medium mb-4">Account Actions</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium">Sign Out</h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Sign out of your account on this device
-                </p>
-                <Button 
-                  variant="outline"
-                  onClick={signOut}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign Out
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          {/* Danger Zone */}
-          <div className="bg-card border border-destructive/20 rounded-lg p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <h2 className="text-xl font-medium text-destructive">Danger Zone</h2>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium">Delete Account</h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Permanently delete your account and all your data. This action cannot be undone.
-                </p>
-                
-                <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive">
-                      Delete Account
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your account
-                        and remove all your data from our servers.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    
-                    <div className="space-y-2 py-2">
-                      <Label htmlFor="confirm-email">
-                        Type <span className="font-medium">{user?.email}</span> to confirm
-                      </Label>
-                      <Input 
-                        id="confirm-email"
-                        value={confirmText}
-                        onChange={(e) => setConfirmText(e.target.value)}
-                        placeholder={user?.email}
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <AlertDialogFooter>
-                      <AlertDialogCancel asChild>
-                        <Button variant="outline">Cancel</Button>
-                      </AlertDialogCancel>
-                      <AlertDialogAction asChild>
-                        <Button 
-                          variant="destructive" 
-                          onClick={handleDeleteAccount}
-                          disabled={confirmText !== user?.email || isLoading}
-                        >
-                          {isDeleting ? "Deleting..." : "Delete Account"}
-                        </Button>
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
-          </div>
-        </div>
+              </>
+            ) : (
+              <p>No subscription found.</p>
+            )}
+            <Button onClick={() => navigate("/upgrade")}>
+              {subscription?.plan === "pro" ? "Manage Subscription" : "Upgrade to Pro"}
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Danger Zone</CardTitle>
+            <CardDescription>
+              Here you can manage critical actions related to your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <Button
+              variant="destructive"
+              onClick={handleSignOut}
+              disabled={isLoadingLogout}
+            >
+              {isLoadingLogout ? "Signing Out..." : "Sign Out"}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">Delete Account</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete
+                    your account and remove your data from our servers.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAccount}
+                    disabled={isLoadingDelete || isLoadingLogout}
+                  >
+                    {isLoadingDelete ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );

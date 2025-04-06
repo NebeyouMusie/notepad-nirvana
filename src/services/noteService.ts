@@ -16,6 +16,13 @@ export interface Note {
   tags: string[] | null;
 }
 
+export interface NoteInput {
+  title: string;
+  content?: string | null;
+  color?: string;
+  tags?: string[] | null;
+}
+
 export interface NoteFilter {
   favorite?: boolean;
   archived?: boolean;
@@ -80,7 +87,7 @@ export async function fetchNotes(filter: NoteFilter = {}): Promise<Note[]> {
   return data || [];
 }
 
-export async function fetchNote(id: string): Promise<Note | null> {
+export async function getNote(id: string): Promise<Note | null> {
   const { data, error } = await supabase
     .from("notes")
     .select("*")
@@ -95,7 +102,7 @@ export async function fetchNote(id: string): Promise<Note | null> {
   return data;
 }
 
-export async function createNote(note: Partial<Note>): Promise<Note | null> {
+export async function createNote(note: Partial<NoteInput>): Promise<Note | null> {
   const { data: userData } = await supabase.auth.getUser();
   
   if (!userData?.user) {
@@ -147,6 +154,34 @@ export async function updateNote(id: string, updates: Partial<Note>): Promise<No
   return data;
 }
 
+export async function toggleFavorite(id: string, isFavorite: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from("notes")
+    .update({ is_favorite: isFavorite })
+    .eq("id", id);
+  
+  if (error) {
+    console.error("Error toggling favorite:", error);
+    return false;
+  }
+  
+  return true;
+}
+
+export async function toggleArchived(id: string, isArchived: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from("notes")
+    .update({ is_archived: isArchived })
+    .eq("id", id);
+  
+  if (error) {
+    console.error("Error toggling archive status:", error);
+    return false;
+  }
+  
+  return true;
+}
+
 export async function trashNote(id: string): Promise<boolean> {
   const { error } = await supabase
     .from("notes")
@@ -175,6 +210,20 @@ export async function restoreNote(id: string): Promise<boolean> {
   
   if (error) {
     console.error("Error restoring note:", error);
+    return false;
+  }
+  
+  return true;
+}
+
+export async function deleteNote(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("notes")
+    .delete()
+    .eq("id", id);
+  
+  if (error) {
+    console.error("Error deleting note permanently:", error);
     return false;
   }
   

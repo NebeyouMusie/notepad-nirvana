@@ -16,9 +16,9 @@ import {
   Save
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { createNote, updateNote, NoteInput } from "@/services/noteService";
+import { createNote, updateNote, Note, NoteInput } from "@/services/noteService";
 import { toast } from "@/hooks/use-toast";
-import { addNoteToFolder, fetchFolders, Folder, getNotesFolders } from "@/services/folderService";
+import { fetchFolders, Folder, addNoteToFolder, getNotesFolders } from "@/services/folderService";
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';

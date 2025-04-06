@@ -28,6 +28,7 @@ export function usePlan() {
       try {
         setIsLoading(true);
         
+        // Use the raw query method to avoid type issues
         const { data, error } = await supabase
           .from('user_subscriptions')
           .select('*')
@@ -36,11 +37,13 @@ export function usePlan() {
         
         if (error) throw error;
         
-        setSubscription({
-          plan: data.plan as PlanType,
-          status: data.status,
-          currentPeriodEnd: data.current_period_end,
-        });
+        if (data) {
+          setSubscription({
+            plan: data.plan as PlanType,
+            status: data.status,
+            currentPeriodEnd: data.current_period_end,
+          });
+        }
       } catch (error) {
         console.error('Error fetching subscription:', error);
         toast({
