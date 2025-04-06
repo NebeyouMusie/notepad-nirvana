@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,8 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -26,89 +25,17 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Settings2, User, Mail, Lock, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { usePlan } from "@/hooks/usePlan";
 
 export default function Account() {
-  const { user, signOut, updateUserProfile } = useAuth();
+  const { user, signOut } = useAuth();
   const { subscription, isLoading: isPlanLoading } = usePlan();
   const navigate = useNavigate();
 
-  const [name, setName] = useState(user?.user_metadata?.name || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isUpdating, setIsUpdating] = useState(false);
   const [isLoadingLogout, setIsLoadingLogout] = useState(false);
   const [isLoadingDelete, setIsLoadingDelete] = useState(false);
   const [deleteAccountDialog, setDeleteAccountDialog] = useState(false);
-
-  useEffect(() => {
-    if (user) {
-      setName(user.user_metadata?.name || "");
-      setEmail(user.email || "");
-    }
-  }, [user]);
-
-  const handleUpdateProfile = async () => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "No user session found",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (password && password !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUpdating(true);
-    try {
-      const updates: {
-        email?: string;
-        password?: string;
-        data?: { name?: string };
-      } = {
-        data: {
-          name: name,
-        },
-      };
-
-      if (email !== user.email) {
-        updates.email = email;
-      }
-
-      if (password) {
-        updates.password = password;
-      }
-
-      await updateUserProfile(updates);
-
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully",
-      });
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update profile",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdating(false);
-      setPassword("");
-      setConfirmPassword("");
-    }
-  };
 
   const handleDeleteAccount = async () => {
     setIsLoadingDelete(true);
@@ -172,54 +99,24 @@ export default function Account() {
             Manage your account settings and preferences.
           </p>
         </div>
+        
+        {/* Profile Information */}
         <Card>
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
             <CardDescription>
-              Update your profile information such as name and email address.
+              Your account information
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4">
-            <div className="grid grid-cols-sm items-center gap-4">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+          <CardContent>
+            <div className="grid gap-2">
+              <div className="text-sm text-muted-foreground">Email</div>
+              <div className="font-medium">{user?.email}</div>
             </div>
-            <div className="grid grid-cols-sm items-center gap-4">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-sm items-center gap-4">
-              <Label htmlFor="password">New Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-sm items-center gap-4">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleUpdateProfile} disabled={isUpdating}>
-              {isUpdating ? "Updating..." : "Update Profile"}
-            </Button>
           </CardContent>
         </Card>
+
+        {/* Subscription */}
         <Card>
           <CardHeader>
             <CardTitle>Subscription</CardTitle>
@@ -233,48 +130,66 @@ export default function Account() {
             ) : subscription ? (
               <>
                 <div className="grid grid-cols-sm items-center gap-4">
-                  <Label>Plan</Label>
-                  <span className="font-medium">{subscription.plan}</span>
+                  <div className="text-sm text-muted-foreground">Current Plan</div>
+                  <span className="font-medium capitalize">{subscription.plan}</span>
                 </div>
                 <div className="grid grid-cols-sm items-center gap-4">
-                  <Label>Status</Label>
-                  <span className="font-medium">{subscription.status}</span>
+                  <div className="text-sm text-muted-foreground">Status</div>
+                  <span className="font-medium capitalize">{subscription.status}</span>
                 </div>
                 {subscription.currentPeriodEnd && (
                   <div className="grid grid-cols-sm items-center gap-4">
-                    <Label>Current Period End</Label>
+                    <div className="text-sm text-muted-foreground">Current Period End</div>
                     <span className="font-medium">
                       {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
                     </span>
                   </div>
                 )}
+                {subscription.plan === 'free' && (
+                  <Button onClick={() => navigate("/upgrade")}>
+                    Upgrade to Pro
+                  </Button>
+                )}
               </>
             ) : (
               <p>No subscription found.</p>
             )}
-            <Button onClick={() => navigate("/upgrade")}>
-              {subscription?.plan === "pro" ? "Manage Subscription" : "Upgrade to Pro"}
+          </CardContent>
+        </Card>
+
+        {/* Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions</CardTitle>
+            <CardDescription>
+              Common account actions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="outline"
+              onClick={handleSignOut}
+              disabled={isLoadingLogout}
+              className="w-full"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              {isLoadingLogout ? "Signing Out..." : "Sign Out"}
             </Button>
           </CardContent>
         </Card>
-        <Card>
+
+        {/* Danger Zone */}
+        <Card className="border-destructive/50">
           <CardHeader>
-            <CardTitle>Danger Zone</CardTitle>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
             <CardDescription>
-              Here you can manage critical actions related to your account.
+              Irreversible actions that affect your account
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
-            <Button
-              variant="destructive"
-              onClick={handleSignOut}
-              disabled={isLoadingLogout}
-            >
-              {isLoadingLogout ? "Signing Out..." : "Sign Out"}
-            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive">Delete Account</Button>
+                <Button variant="destructive" className="w-full">Delete Account</Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -288,7 +203,8 @@ export default function Account() {
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleDeleteAccount}
-                    disabled={isLoadingDelete || isLoadingLogout}
+                    disabled={isLoadingDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
                     {isLoadingDelete ? "Deleting..." : "Delete"}
                   </AlertDialogAction>

@@ -33,24 +33,30 @@ export function usePlan() {
           .from('user_subscriptions')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no record exists
         
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') {
+          // Only throw for errors other than "no rows returned"
+          throw error;
+        }
         
         if (data) {
           setSubscription({
             plan: data.plan as PlanType,
-            status: data.status,
+            status: data.status as 'active' | 'canceled' | 'incomplete' | 'past_due',
             currentPeriodEnd: data.current_period_end,
+          });
+        } else {
+          // Create a default subscription for new users
+          setSubscription({
+            plan: 'free',
+            status: 'active',
+            currentPeriodEnd: null,
           });
         }
       } catch (error) {
         console.error('Error fetching subscription:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load subscription information',
-          variant: 'destructive',
-        });
+        // Don't show toast for subscription errors to avoid annoying users
       } finally {
         setIsLoading(false);
       }
@@ -62,29 +68,31 @@ export function usePlan() {
   const createCheckoutSession = async () => {
     if (!user) {
       toast({
-        title: 'Error',
-        description: 'You must be logged in to upgrade',
-        variant: 'destructive',
+        title: "Error",
+        description: "You must be logged in to upgrade",
+        variant: "destructive",
       });
       return;
     }
 
     try {
-      const { data: { session } } = await supabase.functions.invoke('create-checkout', {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: { priceId: 'price_1PMV1IFajPW65tE46mzJHbvX' }
       });
 
-      if (session && session.url) {
-        window.location.href = session.url;
+      if (error) throw error;
+      
+      if (data?.session?.url) {
+        window.location.href = data.session.url;
       } else {
         throw new Error('Failed to create checkout session');
       }
     } catch (error) {
       console.error('Error creating checkout session:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to create checkout session',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to create checkout session",
+        variant: "destructive",
       });
     }
   };

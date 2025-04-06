@@ -3,7 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, CreditCard, HelpCircle } from "lucide-react";
+import { Check, CreditCard } from "lucide-react";
 import { motion } from "framer-motion";
 import { usePlan } from "@/hooks/usePlan";
 import {
@@ -12,9 +12,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Upgrade() {
   const { isPro, subscription, createCheckoutSession, isLoading } = usePlan();
+  const { resolvedTheme } = useTheme();
+
+  // Use theme-based highlight colors
+  const highlightColor = resolvedTheme === 'dark' ? 'purple-400' : 'primary';
+  const buttonColor = resolvedTheme === 'dark' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-primary hover:bg-primary/90';
 
   return (
     <AppLayout>
@@ -37,14 +43,16 @@ export default function Upgrade() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className={`h-full ${!isPro ? "border-2 border-muted" : ""}`}>
+            <Card className={`h-full ${subscription?.plan === 'free' ? `border-2 border-${highlightColor}` : "border-2 border-muted"}`}>
               <CardHeader className="pb-4">
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="text-2xl">Free</CardTitle>
                     <p className="text-muted-foreground mt-1">Basic note-taking</p>
                   </div>
-                  <Badge variant="outline" className="ml-2">Current Plan</Badge>
+                  {subscription?.plan === 'free' && (
+                    <Badge variant="outline" className="ml-2">Current Plan</Badge>
+                  )}
                 </div>
                 <div className="mt-4">
                   <span className="text-4xl font-bold">$0</span>
@@ -77,7 +85,7 @@ export default function Upgrade() {
                   className="w-full"
                   disabled
                 >
-                  Current Plan
+                  {subscription?.plan === 'free' ? "Current Plan" : "Free Plan"}
                 </Button>
               </CardFooter>
             </Card>
@@ -89,10 +97,10 @@ export default function Upgrade() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Card className={`h-full relative ${isPro ? "border-2 border-primary" : "border-2 border-purple-400"}`}>
+            <Card className={`h-full relative ${isPro ? `border-2 border-${highlightColor}` : `border-2 border-${highlightColor}`}`}>
               {!isPro && (
                 <div className="absolute top-0 right-0 transform translate-x-1/4 -translate-y-1/3">
-                  <Badge className="bg-purple-500 text-white px-3 py-1 text-xs rounded-full">
+                  <Badge className={`bg-${highlightColor} text-white px-3 py-1 text-xs rounded-full`}>
                     Recommended
                   </Badge>
                 </div>
@@ -104,7 +112,7 @@ export default function Upgrade() {
                     <p className="text-muted-foreground mt-1">Unlimited features</p>
                   </div>
                   {isPro && (
-                    <Badge className="bg-primary text-primary-foreground ml-2">Current Plan</Badge>
+                    <Badge className={`bg-${highlightColor} text-primary-foreground ml-2`}>Current Plan</Badge>
                   )}
                 </div>
                 <div className="mt-4">
@@ -143,7 +151,7 @@ export default function Upgrade() {
                   </Button>
                 ) : (
                   <Button
-                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    className={`w-full ${buttonColor}`}
                     onClick={createCheckoutSession}
                     disabled={isLoading}
                   >

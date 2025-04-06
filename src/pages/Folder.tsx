@@ -56,21 +56,21 @@ export default function FolderPage() {
   }, [id]);
 
   const handleUpdateFolder = async () => {
-  if (!id || !newFolderName.trim()) return;
-  
-  setIsProcessing(true);
-  const updatedFolder = await updateFolder(id, { name: newFolderName.trim() });
-  
-  if (updatedFolder) {
-    setFolder(updatedFolder);
-    setIsEditing(false);
-    toast({
-      title: "Folder updated",
-      description: "Folder name has been updated",
-    });
-  }
-  setIsProcessing(false);
-};
+    if (!id || !newFolderName.trim()) return;
+    
+    setIsProcessing(true);
+    const updatedFolder = await updateFolder(id, newFolderName.trim());
+    
+    if (updatedFolder) {
+      setFolder(updatedFolder);
+      setIsEditing(false);
+      toast({
+        title: "Folder updated",
+        description: "Folder name has been updated",
+      });
+    }
+    setIsProcessing(false);
+  };
 
   const handleDeleteFolder = async () => {
     if (!id) return;

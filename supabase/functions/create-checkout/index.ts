@@ -49,7 +49,7 @@ serve(async (req) => {
       .from("user_subscriptions")
       .select("stripe_customer_id")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
     let customerId = subscriptionData?.stripe_customer_id;
 
@@ -71,7 +71,7 @@ serve(async (req) => {
         .eq("user_id", user.id);
     }
 
-    // Create the checkout session with the product ID
+    // Create the checkout session for a one-time payment
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ["card"],
@@ -80,13 +80,12 @@ serve(async (req) => {
           price_data: {
             currency: "usd",
             product: "prod_S4eGhl7NHwiHOK",
-            unit_amount: 1000,
-            recurring: null, // One-time payment
+            unit_amount: 1000, // $10.00
           },
           quantity: 1,
         },
       ],
-      mode: "payment",
+      mode: "payment", // Important: this is for one-time payments, not subscriptions
       success_url: `${req.headers.get("origin")}/account?status=success`,
       cancel_url: `${req.headers.get("origin")}/upgrade?status=canceled`,
     });
